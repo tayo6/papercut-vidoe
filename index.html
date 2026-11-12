@@ -312,8 +312,13 @@ body.ed-on .wrap { display: none; }
 .ed .num, .ed .es, .ed .ti { height: 30px; border-radius: 6px; border: 1px solid var(--e-line); background: var(--e-p2); padding: 0 7px; width: 100%; min-width: 0; }
 .ed .num { text-align: right; font: 12px var(--f-mono); padding: 0 4px; }
 .ed textarea.ti { height: auto; min-height: 76px; padding: 7px; resize: vertical; line-height: 1.35; }
-.sec.sub { margin-top: 12px; }
-.ed .num.tbox { text-align: left; padding: 0 9px; letter-spacing: .02em; }
+.pr.kf { grid-template-columns: 88px minmax(0, 1fr) 62px 26px; gap: 6px; }
+.kfb { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; color: var(--e-mut); }
+.kfb:hover { background: var(--e-p3); color: var(--e-fg); }
+.kfb svg, .kfc svg { fill: none; stroke: currentColor; }
+.kfb[data-st="mid"] svg, .kfc[data-st="mid"] svg { stroke-dasharray: 3.2 2.6; }
+.kfb[data-st="on"] { color: #ffd24a; }
+.kfb[data-st="on"] svg, .kfc[data-st="on"] svg { fill: #ffd24a; stroke: #ffd24a; }
 .ed .num:focus, .ed .es:focus, .ed .ti:focus { border-color: var(--e-acc); outline: 0; }
 .ed input[type="color"] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--e-line); border-radius: 6px; background: none; cursor: pointer; }
 .seg { display: flex; border: 1px solid var(--e-line); border-radius: 6px; overflow: hidden; }
@@ -339,11 +344,29 @@ body.ed-on .wrap { display: none; }
 .kv b { color: var(--e-fg); font-weight: 500; font-family: var(--f-mono); }
 
 /* timeline */
-.ed-tl { flex: none; height: clamp(220px, 38vh, 380px); padding-bottom: env(safe-area-inset-bottom, 0px); display: flex; flex-direction: column; background: var(--e-p1); border-top: 1px solid var(--e-line); min-height: 0; }
+.ed-tl { flex: none; height: clamp(262px, 40vh, 420px); padding-bottom: env(safe-area-inset-bottom, 0px); display: flex; flex-direction: column; background: var(--e-p1); border-top: 1px solid var(--e-line); min-height: 0; }
 .tl-tools { flex: none; height: 40px; display: flex; align-items: center; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--e-line); overflow-x: auto; scrollbar-width: none; }
 .tl-tools .vr { width: 1px; height: 20px; background: var(--e-line); margin: 0 6px; }
 .tl-tools .tt { font-weight: 500; font-size: 12.5px; padding: 0 9px; }
 .tl-tools input[type="range"] { width: 110px; accent-color: var(--e-acc); }
+.tl-bar { flex: none; min-height: 42px; display: flex; align-items: center; gap: 12px; padding: 4px 10px; border-bottom: 1px solid var(--e-line); background: var(--e-p1); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.tb-empty { margin: 0; font-size: 12px; color: var(--e-mut); white-space: nowrap; }
+.tb-grp { display: flex; align-items: center; gap: 8px; flex: none; }
+.tb-grp[hidden], .tb-t[hidden], .kfx[hidden] { display: none; }
+.tb-grp + .tb-grp { padding-left: 12px; border-left: 1px solid var(--e-line); }
+.tb-lab { font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--e-mut); }
+.tb-t { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--e-mut); white-space: nowrap; }
+.tb-t input.tbox { width: 76px; height: 28px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--e-line); background: var(--e-p2); font: 12px var(--f-mono); color: var(--e-fg); }
+.tb-t input.tbox:focus { border-color: var(--e-acc); outline: 0; }
+.kfc { height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border-radius: 7px; background: var(--e-p2); border: 1px solid var(--e-line); font-size: 12px; white-space: nowrap; color: var(--e-fg); }
+.kfc:hover { background: var(--e-p3); }
+.kfc[data-st="on"] { border-color: #ffd24a; color: #ffd24a; }
+.kfn { width: 28px; height: 28px; border-radius: 7px; background: var(--e-p2); border: 1px solid var(--e-line); font-size: 18px; line-height: 1; color: var(--e-fg); }
+.kfn:hover:not([disabled]) { background: var(--e-p3); }
+.kfn[disabled] { opacity: .38; }
+.ed select.kfe { width: 84px; height: 28px; padding: 0 4px; }
+.kfx { height: 28px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--e-mut); }
+.kfx:hover { background: var(--e-p3); color: var(--e-fg); }
 .tl-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; background: var(--e-bg); overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--e-p4) transparent; }
 .tl-inner { position: relative; min-height: 100%; }
 .tl-ruler { position: sticky; top: 0; z-index: 6; height: 26px; display: flex; background: var(--e-p1); border-bottom: 1px solid var(--e-line); }
@@ -376,6 +399,9 @@ body.ed-on .wrap { display: none; }
 .clip .h { position: absolute; top: 0; bottom: 0; width: 16px; background: #fff; display: none; place-items: center; cursor: ew-resize; touch-action: none; z-index: 2; }
 .clip.sel .h { display: grid; }
 .clip .h::after { content: ""; width: 2px; height: 14px; border-radius: 1px; background: #333; box-shadow: 4px 0 0 #333; margin-left: -4px; }
+.kfm { position: absolute; bottom: 1px; width: 14px; height: 14px; margin-left: -7px; display: grid; place-items: center; z-index: 3; cursor: ew-resize; touch-action: none; }
+.kfm svg { fill: #ffd24a; stroke: #3a2d00; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.kfm:hover svg { fill: #fff; }
 .clip .hl { left: 0; border-radius: 6px 0 0 6px; } .clip .hr { right: 0; border-radius: 0 6px 6px 0; }
 .clip.sel .h::before { content: ""; position: absolute; top: 0; bottom: 0; width: 18px; }
 .clip.sel .hl::before { left: -16px; } .clip.sel .hr::before { right: -16px; }
@@ -439,7 +465,11 @@ body.ed-on .wrap { display: none; }
   .sheet-x { display: grid; }
   .ed-tabs { padding-right: 40px; }
   .ed-bar { display: flex; }
-  .ed-tl { height: clamp(172px, 27vh, 250px); padding-bottom: 0; }
+  .ed-tl { height: clamp(250px, 40vh, 340px); padding-bottom: 0; }
+  .tl-bar { flex-wrap: wrap; gap: 6px 12px; overflow: visible; padding: 5px 8px; }
+  .tb-grp { flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; gap: 6px; }
+  .tb-grp + .tb-grp { padding-left: 0; border-left: 0; }
+  .tb-t input.tbox { width: 68px; }
   .ed-top .lbl { display: none; }
   .ed-top #edExport .lbl { display: inline; }
   .ed-toast { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px) + 20px); }
@@ -813,6 +843,11 @@ STORY</textarea>
       <input id="tlZoom" type="range" min="20" max="300" value="80" aria-label="Timeline zoom">
       <button class="eb ic" id="tlZoomIn" type="button" title="Zoom in (+)" aria-label="Zoom in" data-ic="zin"></button>
       <button class="eb ic" id="tlFit" type="button" title="Fit the whole project" aria-label="Fit timeline" data-ic="fit"></button>
+    </div>
+    <div class="tl-bar" id="tlBar" role="group" aria-label="Selected clip: timing and keyframes">
+      <p class="tb-empty" id="tbEmpty">Select a clip to type its start and end times and to add keyframes.</p>
+      <div class="tb-grp" id="tbTime" hidden></div>
+      <div class="tb-grp" id="tbKf" hidden></div>
     </div>
     <div class="tl-scroll" id="tlScroll"><div class="tl-inner" id="tlInner"></div></div>
   </section>
@@ -2264,11 +2299,17 @@ E.clone = clone;
 
 /* ---------- defaults ---------- */
 E.defTf = function () { return { x: 0, y: 0, s: 1, r: 0, o: 1, fx: false, fy: false, fit: 'fit' }; };
+/* Keyframes: per clip, per transform parameter, a list of { t, v, e } sorted by t. t is seconds from the clip's start,
+   v the value, e how it eases towards the next keyframe: 'ease' (smooth), 'lin' (linear) or 'hold' (jump). An empty list means the parameter is not animated and the plain value in clip.tf is used. */
+E.KF_PARAMS = ['x', 'y', 's', 'r', 'o'];
+E.KF_EPS = 0.02;
+E.kfEase = 'ease';
+E.defKf = function () { return { x: [], y: [], s: [], r: [], o: [] }; };
 E.defAnim = function () { return { 'in': { t: 'none', d: 0.7 }, out: { t: 'none', d: 0.7 }, combo: { t: 'none', sp: 1 }, fold: { dir: 'lr', cols: 3, rows: 2, over: 40, tilt: 18, bend: 50, crease: 55 } }; };
 E.defCut = function () { return { on: false, style: 'torn', tex: 'plain', edge: 14, rough: 45, detail: 55, grain: 40, color: '#fbf7ee', boil: 3, boilFps: 8, boilLoop: 3, shadow: 20, shBlur: 14, rm: { on: true, tol: 46, feather: 2, wands: [] } }; };
 E.defText = function () { return { str: 'Your text', font: 'Anton', size: 120, color: '#ffffff', bold: false, align: 'center', ls: 0, lh: 1.1, strokeW: 0, strokeC: '#000000', shadow: true, box: false, boxC: '#000000', boxPad: 22, boxR: 14, ransom: false }; };
 E.newClip = function (kind, o) {
-  var c = { id: E.uid('c'), kind: kind, media: null, name: '', row: null, start: 0, dur: 4, 'in': 0, tf: E.defTf(), anim: E.defAnim(), cut: E.defCut(), vol: 1, fadeIn: 0, fadeOut: 0, mute: false };
+  var c = { id: E.uid('c'), kind: kind, media: null, name: '', row: null, start: 0, dur: 4, 'in': 0, tf: E.defTf(), kf: E.defKf(), anim: E.defAnim(), cut: E.defCut(), vol: 1, fadeIn: 0, fadeOut: 0, mute: false };
   if (kind === 'text') c.text = E.defText();
   if (o) for (var k in o) c[k] = o[k];
   return c;
@@ -2397,7 +2438,7 @@ E.trimClip = function (id, side, t, live) {
   var nb = E.neighbours(c), m = c.media ? E.media[c.media] : null, src = (c.kind === 'video' || c.kind === 'audio') && m;
   if (side === 'l') {
     var ns = clamp(t, Math.max(nb.lo, src ? c.start - c['in'] : 0), c.start + c.dur - E.MIN), d = ns - c.start;
-    c.start = ns; c.dur -= d; if (src) c['in'] += d;
+    c.start = ns; c.dur -= d; if (src) c['in'] += d; shiftKf(c, -d);
   } else {
     var maxEnd = Math.min(nb.hi, src ? c.start + (m.dur - c['in']) : Infinity), ne = clamp(t, c.start + E.MIN, maxEnd);
     c.dur = ne - c.start;
@@ -2410,6 +2451,84 @@ E.setDuration = function (id, dur) {
   var maxEnd = Math.min(nb.hi, src ? c.start + (m.dur - c['in']) : Infinity);
   c.dur = clamp(dur, E.MIN, maxEnd - c.start); E.emit('project'); E.dirty();
 };
+/* ---------- keyframes ---------- */
+function easeU(u, e) { return e === 'hold' ? 0 : e === 'lin' ? u : u * u * (3 - 2 * u); }
+function evalKf(a, t) {
+  var n = a.length; if (t <= a[0].t) return a[0].v; if (t >= a[n - 1].t) return a[n - 1].v;
+  var i = 1; while (i < n - 1 && a[i].t <= t) i++;
+  var p = a[i - 1], q = a[i], d = q.t - p.t; if (d < 1e-6) return q.v;
+  return p.v + (q.v - p.v) * easeU((t - p.t) / d, p.e);
+}
+E.hasKf = function (c) { var k = c && c.kf; if (!k) return false; for (var i = 0; i < 5; i++) if (k[E.KF_PARAMS[i]] && k[E.KF_PARAMS[i]].length) return true; return false; };
+E.isAnimated = function (c, p) { return !!(c && c.kf && c.kf[p] && c.kf[p].length); };
+/* The clip's time at the playhead, kept inside the clip. */
+E.localT = function (c) { return clamp(E.t - c.start, 0, c.dur); };
+/* The clip's transform at lt seconds after its start, with keyframes applied. */
+E.tfAt = function (c, lt) {
+  var tf = c.tf, o = { x: tf.x, y: tf.y, s: tf.s, r: tf.r, o: tf.o, fx: tf.fx, fy: tf.fy, fit: tf.fit }, k = c.kf;
+  if (k) for (var i = 0; i < 5; i++) { var p = E.KF_PARAMS[i], a = k[p]; if (a && a.length) o[p] = evalKf(a, lt); }
+  return o;
+};
+E.kfIndex = function (c, p, lt) { var a = c.kf && c.kf[p]; if (!a) return -1; for (var i = 0; i < a.length; i++) if (Math.abs(a[i].t - lt) <= E.KF_EPS) return i; return -1; };
+function kfInsert(a, k) { var i = 0; while (i < a.length && a[i].t < k.t) i++; a.splice(i, 0, k); }
+/* Set a parameter. An animated parameter gets a keyframe at lt (or its keyframe there is updated); otherwise the plain value changes. No history step: callers commit. */
+E.setTf = function (c, p, v, lt) {
+  var a = c.kf && c.kf[p];
+  if (a && a.length) { var i = E.kfIndex(c, p, lt); if (i >= 0) a[i].v = v; else kfInsert(a, { t: lt, v: v, e: E.kfEase }); }
+  else c.tf[p] = v;
+};
+/* Diamond button: add a keyframe at lt for each parameter in ps, or remove them when all already have one there. */
+E.toggleKf = function (c, ps, lt) {
+  if (!c.kf) c.kf = E.defKf();
+  var all = ps.every(function (p) { return E.kfIndex(c, p, lt) >= 0; }), cur = E.tfAt(c, lt);
+  ps.forEach(function (p) {
+    var a = c.kf[p], i = E.kfIndex(c, p, lt);
+    if (all) { var gone = a.splice(i, 1)[0]; if (!a.length) c.tf[p] = gone.v; }
+    else if (i < 0) kfInsert(a, { t: lt, v: cur[p], e: E.kfEase });
+  });
+  E.emit('project'); E.dirty(); E.commit();
+};
+/* Stop animating a parameter and keep the value it has at lt. */
+E.clearKf = function (c, ps, lt) {
+  var cur = E.tfAt(c, lt); ps.forEach(function (p) { if (c.kf && c.kf[p] && c.kf[p].length) { c.tf[p] = cur[p]; c.kf[p] = []; } });
+  E.emit('project'); E.dirty(); E.commit();
+};
+/* Times (seconds from clip start) that carry at least one keyframe, ascending and merged. */
+E.kfTimes = function (c) {
+  var ts = []; if (!c.kf) return ts;
+  E.KF_PARAMS.forEach(function (p) { (c.kf[p] || []).forEach(function (k) { if (!ts.some(function (t) { return Math.abs(t - k.t) <= E.KF_EPS; })) ts.push(k.t); }); });
+  return ts.sort(function (a, b) { return a - b; });
+};
+/* Slide every keyframe at time `from` to time `to` (dragging a diamond on the timeline). Returns the time actually used. */
+E.moveKfTime = function (c, from, to) {
+  if (!c.kf) return from;
+  var blocked = E.kfTimes(c).some(function (t) { return Math.abs(t - from) > E.KF_EPS && Math.abs(t - to) <= E.KF_EPS; });
+  if (blocked) return from;
+  E.KF_PARAMS.forEach(function (p) { var a = c.kf[p]; if (!a) return; a.forEach(function (k) { if (Math.abs(k.t - from) <= E.KF_EPS) k.t = to; }); a.sort(function (x, y) { return x.t - y.t; }); });
+  return to;
+};
+/* Set how keyframes at lt ease towards the next one. With none there, only the default for new keyframes changes. */
+E.setKfEase = function (c, lt, e) {
+  E.kfEase = e; var hit = false;
+  if (c && c.kf) E.KF_PARAMS.forEach(function (p) { var i = E.kfIndex(c, p, lt); if (i >= 0) { c.kf[p][i].e = e; hit = true; } });
+  if (hit) { E.emit('project'); E.dirty(); E.commit(); }
+};
+/* The clip is cut at d seconds: b is a copy made from c. Each animated parameter gets a keyframe at the cut so the motion carries on unbroken. */
+function splitKf(c, b, d) {
+  E.KF_PARAMS.forEach(function (p) {
+    var a = c.kf && c.kf[p]; if (!a || !a.length) return;
+    var v = evalKf(a, d), ease = 'ease', i;
+    for (i = 0; i < a.length; i++) if (a[i].t <= d) ease = a[i].e;
+    c.kf[p] = a.filter(function (k) { return k.t < d - E.KF_EPS; }).concat([{ t: d, v: v, e: ease }]);
+    b.kf[p] = [{ t: 0, v: v, e: ease }].concat(a.filter(function (k) { return k.t > d + E.KF_EPS; }).map(function (k) { return { t: k.t - d, v: k.v, e: k.e }; }));
+  });
+}
+/* The clip's left edge moved by d seconds: keep keyframes at the same moment of the timeline. */
+function shiftKf(c, d) {
+  if (!c.kf || !d) return;
+  E.KF_PARAMS.forEach(function (p) { (c.kf[p] || []).forEach(function (k) { k.t += d; }); });
+}
+
 /* ---------- typed timing (timestamp boxes) ---------- */
 /* Reads "12", "12.5", "1:05", "1:05.25" or "0:01:05" as seconds; returns null when it is not a time. */
 E.parseTime = function (s) {
@@ -2452,6 +2571,7 @@ E.splitClip = function (id, t) {
   var b = clone(c); b.id = E.uid('c');
   var d = t - c.start;
   b.start = t; b.dur = c.dur - d; if (c.kind === 'video' || c.kind === 'audio') b['in'] = c['in'] + d;
+  splitKf(c, b, d);
   c.dur = d;
   c.anim.out.t = 'none'; b.anim['in'].t = 'none'; c.fadeOut = 0; b.fadeIn = 0;
   E.proj.clips.push(b);
@@ -3145,11 +3265,11 @@ function baseScale(c, src, w, h) {
   return fill ? Math.max(w / src.mw, h / src.mh) : Math.min(w / src.mw, h / src.mh);
 }
 /* Box the clip occupies on a w x h frame, for the on-canvas handles: centre, size, rotation (static transform only). */
-E.boxOf = function (c, w, h) {
+E.boxOf = function (c, w, h, T) {
   var needPaper = c.cut.on, src;
   try { src = sourceOf(c, c.start, needPaper, false); } catch (e) { src = null; }
   if (!src) { var m = c.media && E.media[c.media]; if (!m) return null; src = { w: m.w || 100, h: m.h || 100, k: 1, ox: 0, oy: 0, mw: m.w || 100, mh: m.h || 100, img: null }; }
-  var tf = c.tf, s = baseScale(c, src, w, h) * tf.s, rot = tf.r * PI / 180;
+  var tf = E.tfAt(c, T == null ? E.localT(c) : T - c.start), s = baseScale(c, src, w, h) * tf.s, rot = tf.r * PI / 180;
   var ox = src.ox * s * (tf.fx ? -1 : 1), oy = src.oy * s * (tf.fy ? -1 : 1), cr = Math.cos(rot), sr = Math.sin(rot);
   var padPx = src.paper && src.img && src.img.pad ? src.img.pad : 0;
   return { cx: w / 2 + tf.x * w + ox * cr - oy * sr, cy: h / 2 + tf.y * h + ox * sr + oy * cr, bw: (src.w - padPx * 2) * src.k * s, bh: (src.h - padPx * 2) * src.k * s, rot: rot };
@@ -3169,7 +3289,7 @@ function tearPath(ctx, hw, hh, e, edge) {
 }
 
 function drawClip(ctx, w, h, c, T) {
-  var lt = T - c.start, st = animState(c, lt), tf = c.tf, cut = c.cut;
+  var lt = T - c.start, st = animState(c, lt), tf = E.tfAt(c, lt), cut = c.cut;
   var needPaper = E.needsPaper(c, st), src = sourceOf(c, T, needPaper, !!st.fold);
   if (!src) return;
   var base = baseScale(c, src, w, h), s = base * tf.s * st.s;
@@ -3218,7 +3338,7 @@ E.hitTest = function (px, py, w, h, T) {
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i]; if (r.kind !== 'v' || r.hide) continue;
     var c = E.clipAt(r.id, T); if (!c) continue;
-    var b = E.boxOf(c, w, h); if (!b) continue;
+    var b = E.boxOf(c, w, h, T); if (!b) continue;
     var dx = px - b.cx, dy = py - b.cy, cr = Math.cos(-b.rot), sr = Math.sin(-b.rot), lx = dx * cr - dy * sr, ly = dx * sr + dy * cr;
     if (Math.abs(lx) <= b.bw / 2 && Math.abs(ly) <= b.bh / 2) return c;
   }
@@ -3289,6 +3409,7 @@ var IC = {
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>', scissors: '<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8 7.5L20 17M8 16.5L20 7"/>',
   wand: '<path d="M4 20L15 9M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.6 1.4L21 14l-1.4.6L19 16l-.6-1.4L17 14l1.4-.6z"/>', fliph: '<path d="M12 3v18M8 7L3 17h5zM16 7l5 10h-5z"/>', flipv: '<path d="M3 12h18M7 8l10-5v5zM7 16l10 5v-5z"/>'
 };
+U.kfIcon = function (s) { s = s || 14; return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M12 2.5 21.5 12 12 21.5 2.5 12Z" stroke-width="2.4" stroke-linejoin="round"/></svg>'; };
 U.ic = function (n, s) { s = s || 18; return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[n] || '') + '</svg>'; };
 function fillIcons(root) { Array.prototype.forEach.call((root || $('ed')).querySelectorAll('[data-ic]'), function (el) { if (!el.getAttribute('data-done')) { el.insertAdjacentHTML('afterbegin', U.ic(el.getAttribute('data-ic'), el.classList.contains('em-ic') ? 24 : 18)); el.setAttribute('data-done', '1'); } }); }
 U.fillIcons = fillIcons;
@@ -3349,7 +3470,7 @@ function insideBox(c, p) {
 }
 /* where a point of the frame lands on the original photo, 0..1 (for the background picker) */
 function imageUV(c, p) {
-  var m = E.media[c.media], w = cv.width, hh = cv.height, tf = c.tf, s = (tf.fit === 'fill' ? Math.max(w / m.w, hh / m.h) : Math.min(w / m.w, hh / m.h)) * tf.s, rot = tf.r * Math.PI / 180;
+  var m = E.media[c.media], w = cv.width, hh = cv.height, tf = E.tfAt(c, E.localT(c)), s = (tf.fit === 'fill' ? Math.max(w / m.w, hh / m.h) : Math.min(w / m.w, hh / m.h)) * tf.s, rot = tf.r * Math.PI / 180;
   var dx = p.x - (w / 2 + tf.x * w), dy = p.y - (hh / 2 + tf.y * hh), cr = Math.cos(-rot), sr = Math.sin(-rot), lx = dx * cr - dy * sr, ly = dx * sr + dy * cr;
   if (tf.fx) lx = -lx; if (tf.fy) ly = -ly;
   return [lx / (m.w * s) + 0.5, ly / (m.h * s) + 0.5];
@@ -3369,13 +3490,14 @@ stage.addEventListener('pointerdown', function (e) {
     return;
   }
   if (hd && c) {
-    drag = { mode: hd.getAttribute('data-h'), id: c.id, tf0: E.clone(c.tf), cen: { x: w / 2 + c.tf.x * w, y: hh / 2 + c.tf.y * hh }, p0: p };
+    var tv = E.tfAt(c, E.localT(c));
+    drag = { mode: hd.getAttribute('data-h'), id: c.id, lt: E.localT(c), tf0: tv, cen: { x: w / 2 + tv.x * w, y: hh / 2 + tv.y * hh }, p0: p };
     drag.r0 = Math.max(8, Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y)); drag.a0 = Math.atan2(p.y - drag.cen.y, p.x - drag.cen.x);
   } else {
     var hit = (c && insideBox(c, p)) ? c : E.hitTest(p.x, p.y, w, hh, E.t);
     if (!hit) { E.select(null); return; }
     if (hit.id !== E.sel) E.select(hit.id);
-    drag = { mode: 'm', id: hit.id, tf0: E.clone(hit.tf), x0: e.clientX, y0: e.clientY };
+    drag = { mode: 'm', id: hit.id, lt: E.localT(hit), tf0: E.tfAt(hit, E.localT(hit)), x0: e.clientX, y0: e.clientY };
   }
   drag.moved = false; try { stage.setPointerCapture(e.pointerId); } catch (er) { /* not capturable */ }
   e.preventDefault();
@@ -3383,21 +3505,22 @@ stage.addEventListener('pointerdown', function (e) {
 stage.addEventListener('pointermove', function (e) {
   if (!drag) return;
   var c = E.clipById(drag.id); if (!c) return;
-  var w = cv.width, hh = cv.height, p = frameXY(e), tf = c.tf, t0 = drag.tf0, gx = false, gy = false;
+  var w = cv.width, hh = cv.height, p = frameXY(e), t0 = drag.tf0, lt = drag.lt, gx = false, gy = false; /* animated values get a keyframe at the playhead; plain ones just change */
   if (drag.mode === 'm') {
     var r = stage.getBoundingClientRect(), dx = (e.clientX - drag.x0) * cv.width / r.width, dy = (e.clientY - drag.y0) * cv.height / r.height;
     if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
-    tf.x = t0.x + dx / w; tf.y = t0.y + dy / hh;
-    if (Math.abs(tf.x) < 0.012) { tf.x = 0; gx = true; } if (Math.abs(tf.y) < 0.012) { tf.y = 0; gy = true; }
+    var nx = t0.x + dx / w, ny = t0.y + dy / hh;
+    if (Math.abs(nx) < 0.012) { nx = 0; gx = true; } if (Math.abs(ny) < 0.012) { ny = 0; gy = true; }
+    E.setTf(c, 'x', nx, lt); E.setTf(c, 'y', ny, lt);
   } else if (drag.mode === 's') {
-    tf.s = clamp(t0.s * Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y) / drag.r0, 0.03, 10);
+    E.setTf(c, 's', clamp(t0.s * Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y) / drag.r0, 0.03, 10), lt);
   } else {
     var a = Math.atan2(p.y - drag.cen.y, p.x - drag.cen.x), deg = t0.r + (a - drag.a0) * 180 / Math.PI;
-    deg = ((deg + 180) % 360 + 360) % 360 - 180; var q = Math.round(deg / 45) * 45; if (Math.abs(deg - q) < 4) deg = q; tf.r = deg;
+    deg = ((deg + 180) % 360 + 360) % 360 - 180; var q = Math.round(deg / 45) * 45; if (Math.abs(deg - q) < 4) deg = q; E.setTf(c, 'r', deg, lt);
   }
   drag.moved = true; guides(gx, gy); U.live();
 });
-function endDrag() { if (!drag) return; var m = drag.moved; drag = null; guides(false, false); if (m) { E.commit(); E.emit('live'); } }
+function endDrag() { if (!drag) return; var m = drag.moved; drag = null; guides(false, false); if (m) { E.commit(); E.emit('live'); E.emit('project'); } }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
 
 /* ---------- transport ---------- */
@@ -3804,7 +3927,12 @@ function buildClip(c) {
   el.appendChild(h('span', { class: 'c-name', text: labelOf(c) }));
   var hl = h('i', { class: 'h hl' }), hr = h('i', { class: 'h hr' }); el.appendChild(hl); el.appendChild(hr);
   paintClip(el, c);
-  el.addEventListener('pointerdown', function (e) { if (e.target === hl) startTrim(e, c.id, 'l'); else if (e.target === hr) startTrim(e, c.id, 'r'); else startMove(e, c.id); });
+  var cw = Math.max(6, c.dur * pps);
+  E.kfTimes(c).forEach(function (t) { if (t < -1e-6 || t > c.dur + 1e-6) return; el.appendChild(h('i', { class: 'kfm', 'data-t': String(t), title: 'Keyframe: click to jump here, drag to move it', style: { left: clamp(t * pps, 7, Math.max(7, cw - 7)) + 'px' }, html: U.kfIcon(11) })); });
+  el.addEventListener('pointerdown', function (e) {
+    var km = e.target.closest && e.target.closest('.kfm');
+    if (km) startKf(e, c.id, km); else if (e.target === hl) startTrim(e, c.id, 'l'); else if (e.target === hr) startTrim(e, c.id, 'r'); else startMove(e, c.id);
+  });
   el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); E.select(c.id); } });
   clipEls[c.id] = el; return el;
 }
@@ -3886,6 +4014,7 @@ function startMove(e, id) {
 function onMove(e) {
   var d = drag; if (!d || e.pointerId !== d.pid) return; d.last = e;
   if (d.type === 'trim') { trimTo(e); return; }
+  if (d.type === 'kf') { kfTo(e); return; }
   var c = E.clipById(d.id); if (!c) return;
   if (!d.moved && Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 5) return;
   d.moved = true; d.el.classList.add('drag');
@@ -3897,11 +4026,12 @@ function onUp(e) {
   var d = drag; if (!d || e.pointerId !== d.pid) return;
   unhook(); clearGhost();
   if (d.type === 'trim') { drag = null; E.emit('project'); E.commit(); return; }
+  if (d.type === 'kf') { drag = null; if (d.moved) { E.emit('project'); E.commit(); } return; }
   var id = d.id, moved = d.moved, tgt = d.target, st = d.start; drag = null;
   if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; }
   if (moved && tgt) E.moveClip(id, tgt, st);
 }
-function onCancel(e) { var d = drag; if (!d) return; unhook(); clearGhost(); if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; } if (d.type === 'trim') { E.emit('project'); E.commit(); } drag = null; }
+function onCancel(e) { var d = drag; if (!d) return; unhook(); clearGhost(); if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; } if (d.type === 'trim' || (d.type === 'kf' && d.moved)) { E.emit('project'); E.commit(); } drag = null; }
 function unhook() { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onCancel); }
 function autoScroll() {
   if (!drag) return;
@@ -3928,6 +4058,26 @@ function trimTo(e) {
   var el = clipEls[d.id]; el.style.left = (c.start * pps) + 'px'; el.style.width = Math.max(6, c.dur * pps) + 'px';
   if (c.kind === 'video' || c.kind === 'audio') repaintSoon();
   E.seek(d.side === 'l' ? c.start : Math.max(c.start, c.start + c.dur - 0.034));
+}
+
+/* ---------- keyframe diamonds: click to jump the playhead there, drag to move them in time ---------- */
+function startKf(e, id, mk) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  var c = E.clipById(id); if (!c) return;
+  e.stopPropagation(); e.preventDefault(); E.select(id); E.pause();
+  var t0 = parseFloat(mk.getAttribute('data-t')) || 0;
+  drag = { type: 'kf', id: id, mk: mk, t: t0, moved: false, sx: e.clientX, pid: e.pointerId, last: e };
+  E.seek(c.start + clamp(t0, 0, c.dur));
+  try { mk.setPointerCapture(e.pointerId); } catch (er) { /* fine */ }
+  window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onCancel);
+}
+function kfTo(e) {
+  var d = drag, c = E.clipById(d.id); if (!c) return;
+  if (!d.moved && Math.abs(e.clientX - d.sx) < 4) return;
+  d.moved = true;
+  var t = Math.round(clamp(timeAt(e.clientX) - c.start, 0, c.dur) * 100) / 100, got = E.moveKfTime(c, d.t, t);
+  d.t = got; d.mk.setAttribute('data-t', String(got)); d.mk.style.left = clamp(got * pps, 7, Math.max(7, c.dur * pps - 7)) + 'px';
+  E.dirty(); E.seek(c.start + got);
 }
 
 /* ---------- drops from the library or the desktop ---------- */
@@ -3987,15 +4137,114 @@ window.addEventListener('resize', function () { if (K.editorOn) buildSoon(); });
 
 (function () {
 'use strict';
+/* Bar above the timeline for the selected clip: typed Start, End, Duration, Trim in and Trim out, and keyframe controls for position, scale, rotation and opacity. */
+var K = window.__snip, E = K.E, U = E.ui, h = U.h, $ = U.$;
+var empty = $('tbEmpty'), gT = $('tbTime'), gK = $('tbKf'), syncs = [];
+
+/* ---------- a box you type a time into: 12.5, 1:05 or 1:05.25 ---------- */
+/* Enter or leaving the box applies it, Esc puts the old value back, Up and Down nudge by 0.1 s (Shift: 1 s). */
+function timeBox(o) {
+  var inp = h('input', { type: 'text', class: 'tbox', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false', 'aria-label': o.l + ' (minutes:seconds.hundredths)', placeholder: '0:00.00' });
+  var wrap = h('label', { class: 'tb-t', title: o.tip || '' }, [h('span', { text: o.l }), inp]);
+  function show() {
+    var c = E.selClip(); if (!c) return;
+    wrap.hidden = !!(o.only && !o.only(c)); if (wrap.hidden || document.activeElement === inp) return;
+    inp.value = E.fmtT(o.get(c));
+  }
+  function apply() {
+    var c = E.selClip(); if (!c) return; var v = E.parseTime(inp.value);
+    if (v == null) { E.emit('toast', 'Type a time like 12.5, 1:05 or 1:05.25.'); inp.value = E.fmtT(o.get(c)); return; }
+    o.set(c, v);
+    var q = E.selClip(); if (!q) return;
+    var got = o.get(q);
+    if (Math.abs(got - v) > 0.011) E.emit('toast', o.l + ' set to ' + E.fmtT(got) + ', the closest time that fits.');
+    inp.value = E.fmtT(got); if (o.seek) E.seek(o.seek(q));
+  }
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); apply(); inp.select(); }
+    else if (e.key === 'Escape') { var c = E.selClip(); if (c) inp.value = E.fmtT(o.get(c)); inp.blur(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); var c2 = E.selClip(); if (!c2) return;
+      var cur = E.parseTime(inp.value); if (cur == null) cur = o.get(c2);
+      inp.value = E.fmtT(Math.max(0, cur + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 1 : 0.1))); apply();
+    }
+    e.stopPropagation(); /* keep Space, S and Delete from reaching the editor shortcuts while typing */
+  });
+  inp.addEventListener('change', apply);
+  inp.addEventListener('focus', function () { setTimeout(function () { try { inp.select(); } catch (er) { /* fine */ } }, 0); });
+  inp.addEventListener('blur', show);
+  syncs.push(show);
+  return wrap;
+}
+var isSrc = function (c) { return (c.kind === 'video' || c.kind === 'audio') && !!(c.media && E.media[c.media]); };
+var endSeek = function (q) { return Math.max(q.start, q.start + q.dur - 0.034); };
+gT.appendChild(timeBox({ l: 'Start', tip: 'Where the clip begins on the timeline', get: function (c) { return c.start; }, set: function (c, v) { E.setStart(c.id, v); }, seek: function (q) { return q.start; } }));
+gT.appendChild(timeBox({ l: 'End', tip: 'Where the clip ends on the timeline', get: function (c) { return c.start + c.dur; }, set: function (c, v) { E.setEnd(c.id, v); }, seek: endSeek }));
+gT.appendChild(timeBox({ l: 'Length', tip: 'How long the clip lasts', get: function (c) { return c.dur; }, set: function (c, v) { E.setDuration(c.id, v); E.commit(); }, seek: endSeek }));
+gT.appendChild(timeBox({ l: 'Trim in', tip: 'Where in the source the clip starts playing', only: isSrc, get: function (c) { return c['in']; }, set: function (c, v) { E.setSourceRange(c.id, v, null); }, seek: function (q) { return q.start; } }));
+gT.appendChild(timeBox({ l: 'Trim out', tip: 'Where in the source the clip stops playing', only: isSrc, get: function (c) { return c['in'] + c.dur; }, set: function (c, v) { E.setSourceRange(c.id, null, v); }, seek: endSeek }));
+
+/* ---------- keyframes ---------- */
+var GROUPS = [['Position', ['x', 'y']], ['Scale', ['s']], ['Rotate', ['r']], ['Opacity', ['o']]];
+gK.appendChild(h('span', { class: 'tb-lab', text: 'Keyframes' }));
+GROUPS.forEach(function (g) {
+  var b = h('button', { class: 'kfc', type: 'button', html: U.kfIcon(13) + '<span>' + g[0] + '</span>' });
+  b.addEventListener('click', function () { var c = E.selClip(); if (c) E.toggleKf(c, g[1], E.localT(c)); });
+  gK.appendChild(b);
+  syncs.push(function () {
+    var c = E.selClip(); if (!c) return; var lt = E.localT(c);
+    var anim = g[1].some(function (p) { return E.isAnimated(c, p); }), here = g[1].every(function (p) { return E.kfIndex(c, p, lt) >= 0; });
+    var st = here ? 'on' : anim ? 'mid' : 'off', tip = st === 'on' ? 'Remove the ' + g[0].toLowerCase() + ' keyframe at the playhead' : 'Add a ' + g[0].toLowerCase() + ' keyframe at the playhead';
+    b.setAttribute('data-st', st); b.setAttribute('aria-pressed', String(st === 'on')); b.title = tip; b.setAttribute('aria-label', tip);
+  });
+});
+function jump(dir) {
+  var c = E.selClip(); if (!c) return; var lt = E.localT(c), ts = E.kfTimes(c).filter(function (t) { return t >= 0 && t <= c.dur + 1e-6; }), to = null, i;
+  if (dir < 0) { for (i = ts.length - 1; i >= 0; i--) if (ts[i] < lt - E.KF_EPS) { to = ts[i]; break; } }
+  else { for (i = 0; i < ts.length; i++) if (ts[i] > lt + E.KF_EPS) { to = ts[i]; break; } }
+  if (to == null) { E.emit('toast', dir < 0 ? 'No earlier keyframe.' : 'No later keyframe.'); return; }
+  E.pause(); E.seek(c.start + to);
+}
+var prev = h('button', { class: 'kfn', type: 'button', title: 'Previous keyframe', 'aria-label': 'Previous keyframe', text: '‹' });
+var next = h('button', { class: 'kfn', type: 'button', title: 'Next keyframe', 'aria-label': 'Next keyframe', text: '›' });
+prev.addEventListener('click', function () { jump(-1); }); next.addEventListener('click', function () { jump(1); });
+gK.appendChild(prev); gK.appendChild(next);
+var ease = h('select', { class: 'es kfe', 'aria-label': 'How keyframes at the playhead ease into the next one', title: 'Easing from the keyframe at the playhead to the next one (also used for new keyframes)' },
+  [['ease', 'Smooth'], ['lin', 'Linear'], ['hold', 'Hold']].map(function (q) { return h('option', { value: q[0], text: q[1] }); }));
+ease.addEventListener('change', function () { var c = E.selClip(); if (c) E.setKfEase(c, E.localT(c), ease.value); });
+gK.appendChild(ease);
+var clear = h('button', { class: 'kfx', type: 'button', title: 'Stop animating this clip (keeps the values at the playhead)', 'aria-label': 'Clear all keyframes', text: 'Clear' });
+clear.addEventListener('click', function () { var c = E.selClip(); if (c) E.clearKf(c, E.KF_PARAMS, E.localT(c)); });
+gK.appendChild(clear);
+syncs.push(function () {
+  var c = E.selClip(); if (!c) return; var any = E.hasKf(c);
+  clear.hidden = !any; prev.disabled = next.disabled = !any;
+  if (document.activeElement !== ease) { var lt = E.localT(c), e0 = null; E.KF_PARAMS.forEach(function (p) { var i = E.kfIndex(c, p, lt); if (i >= 0 && e0 == null) e0 = c.kf[p][i].e; }); ease.value = e0 || E.kfEase; }
+});
+
+/* ---------- keep it in step with the selection and the playhead ---------- */
+function refresh() {
+  var c = E.selClip();
+  empty.hidden = !!c; gT.hidden = !c; gK.hidden = !c || c.kind === 'audio';
+  if (c) for (var i = 0; i < syncs.length; i++) syncs[i]();
+}
+var soon = U.raf1(refresh);
+E.on('sel', refresh); E.on('project', refresh); E.on('opened', refresh);
+E.on('time', soon); E.on('live', soon);
+refresh();
+})();
+
+(function () {
+'use strict';
 /* Video editor properties panel: transform, cut-out, animation, audio and text settings for the selected clip, project settings otherwise. */
 var K = window.__snip, E = K.E, U = E.ui, h = U.h, $ = U.$, clamp = K.clamp;
-var I = U.insp = {}, bound = [], uid = 0, tabName = 'basic', curKey = '', lastSel = null, lastTab = null, lastKind = null, building = false, refocus = null;
+var I = U.insp = {}, bound = [], uid = 0, tabName = 'basic', curKey = '', lastSel = null, lastTab = null, lastKind = null, building = false;
 
 function gp(o, p) { var a = p.split('.'), v = o; for (var i = 0; i < a.length && v != null; i++) v = v[a[i]]; return v; }
 function sp(o, p, val) { var a = p.split('.'), v = o; for (var i = 0; i < a.length - 1; i++) v = v[a[i]]; v[a[a.length - 1]] = val; }
 function sec(t) { return h('div', { class: 'sec', text: t }); }
 function hint(t) { return h('p', { class: 'hint', text: t }); }
-function after(o, final) { U.live(); if (o.st) E.emit('project'); if (o.aud && final) E.emit('audio'); }
+function after(o, final) { U.live(); if (o.st) E.emit('project'); else if (o.kf && final) E.emit('project'); /* a new keyframe may have been added: redraw the timeline diamonds */ if (o.aud && final) E.emit('audio'); }
 function round(x, d) { var k = Math.pow(10, d); return Math.round(x * k) / k; }
 
 /* ---------- controls (each registers a sync function that reads the selected clip) ---------- */
@@ -4003,15 +4252,29 @@ function rng(o) {
   var sc = o.sc || 1, st = o.step * sc, dec = o.dec != null ? o.dec : (st >= 1 ? 0 : st >= 0.1 ? 1 : 2), id = 'ip' + (++uid), lo = round(o.min * sc, 4), hi = round(o.max * sc, 4);
   var inp = h('input', { type: 'range', id: id, min: lo, max: hi, step: round(st, 4) }), num = h('input', { type: 'number', class: 'num', min: lo, max: hi, step: round(st, 4), 'aria-label': o.l });
   function show() {
-    var c = E.selClip(); if (!c) return; var v = gp(c, o.p); if (v == null) return; var x = v * sc;
+    var c = E.selClip(); if (!c) return; var v = o.kf ? E.tfAt(c, E.localT(c))[o.kf] : gp(c, o.p); if (v == null) return; var x = v * sc;
     if (document.activeElement !== inp) inp.value = x; if (document.activeElement !== num) num.value = round(x, dec).toFixed(dec);
   }
-  function write(x, final) { var c = E.selClip(); if (!c) return; sp(c, o.p, clamp(x, lo, hi) / sc); after(o, final); }
+  function write(x, final) { var c = E.selClip(); if (!c) return; var v = clamp(x, lo, hi) / sc; if (o.kf) E.setTf(c, o.kf, v, E.localT(c)); else sp(c, o.p, v); after(o, final); }
   inp.addEventListener('input', function () { write(+inp.value, false); num.value = round(+inp.value, dec).toFixed(dec); });
   inp.addEventListener('change', function () { write(+inp.value, true); E.commit(); });
   num.addEventListener('change', function () { var v = parseFloat(num.value); if (isNaN(v)) { show(); return; } write(clamp(v, lo, hi), true); E.commit(); show(); });
   bound.push(show); show();
+  if (o.kf) return h('div', { class: 'pr kf' }, [h('label', { for: id, text: o.l }), inp, num, kfBtn(o.kf, o.l)]);
   return h('div', { class: 'pr' }, [h('label', { for: id, text: o.l }), inp, num]);
+}
+/* Keyframe diamond for one parameter: hollow = not animated, dotted = animated but no keyframe at the playhead, solid = keyframe here (click removes it). */
+function kfBtn(p, label) {
+  var b = h('button', { class: 'kfb', type: 'button', html: U.kfIcon(14) });
+  b.addEventListener('click', function () { var c = E.selClip(); if (c) E.toggleKf(c, [p], E.localT(c)); });
+  bound.push(function () {
+    var c = E.selClip(); if (!c) return;
+    var st = !E.isAnimated(c, p) ? 'off' : E.kfIndex(c, p, E.localT(c)) >= 0 ? 'on' : 'mid';
+    b.setAttribute('data-st', st); b.setAttribute('aria-pressed', String(st === 'on'));
+    var t = st === 'off' ? 'Add a keyframe for ' + label + ' at the playhead' : st === 'on' ? 'Remove the ' + label + ' keyframe at the playhead' : 'Add a ' + label + ' keyframe at the playhead';
+    b.title = t; b.setAttribute('aria-label', t);
+  }); bound[bound.length - 1]();
+  return b;
 }
 function selc(o) {
   var id = 'ip' + (++uid), s = h('select', { class: 'es', id: id }, o.opts.map(function (q) { return h('option', { value: q[0], text: q[1] }); }));
@@ -4050,64 +4313,25 @@ var SWATCH = K.PAPER_COLORS;
 /* ---------- tabs ---------- */
 function tabBasic(c, b) {
   b.appendChild(sec('Position and size'));
-  b.appendChild(rng({ l: 'Scale', p: 'tf.s', min: 0.05, max: 4, step: 0.01, sc: 100, dec: 0 }));
-  b.appendChild(rng({ l: 'Position X', p: 'tf.x', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
-  b.appendChild(rng({ l: 'Position Y', p: 'tf.y', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
-  b.appendChild(rng({ l: 'Rotate', p: 'tf.r', min: -180, max: 180, step: 1, dec: 0 }));
+  b.appendChild(rng({ l: 'Scale', p: 'tf.s', kf: 's', min: 0.05, max: 4, step: 0.01, sc: 100, dec: 0 }));
+  b.appendChild(rng({ l: 'Position X', p: 'tf.x', kf: 'x', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
+  b.appendChild(rng({ l: 'Position Y', p: 'tf.y', kf: 'y', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
+  b.appendChild(rng({ l: 'Rotate', p: 'tf.r', kf: 'r', min: -180, max: 180, step: 1, dec: 0 }));
   if (c.kind !== 'text') b.appendChild(seg({ l: 'Fit', p: 'tf.fit', opts: [['fit', 'Fit'], ['fill', 'Fill']] }));
   var fx = sb('Flip horizontal', function () { var q = E.selClip(); if (q) { q.tf.fx = !q.tf.fx; U.live(); E.commit(); sync(); } }), fy = sb('Flip vertical', function () { var q = E.selClip(); if (q) { q.tf.fy = !q.tf.fy; U.live(); E.commit(); sync(); } });
-  b.appendChild(h('div', { class: 'btn-row' }, [fx, fy, sb('Reset', function () { var q = E.selClip(); if (!q) return; var f = q.tf.fit; q.tf = E.defTf(); q.tf.fit = f; U.live(); E.commit(); sync(); })]));
+  b.appendChild(h('div', { class: 'btn-row' }, [fx, fy, sb('Reset', function () { var q = E.selClip(); if (!q) return; var f = q.tf.fit; q.tf = E.defTf(); q.tf.fit = f; q.kf = E.defKf(); U.live(); E.commit(); E.emit('project'); sync(); })]));
   bound.push(function () { var q = E.selClip(); if (q) { fx.setAttribute('aria-pressed', String(!!q.tf.fx)); fy.setAttribute('aria-pressed', String(!!q.tf.fy)); } });
   b.appendChild(sec('Blend'));
-  b.appendChild(rng({ l: 'Opacity', p: 'tf.o', min: 0, max: 1, step: 0.01, sc: 100, dec: 0 }));
+  b.appendChild(rng({ l: 'Opacity', p: 'tf.o', kf: 'o', min: 0, max: 1, step: 0.01, sc: 100, dec: 0 }));
+  b.appendChild(hint('The diamond animates a setting: move the playhead, change the value, and it keyframes itself.'));
   b.appendChild(sec('Timing'));
-  timeCtl(c, b);
-}
-/* A box you type a time into (12.5, 1:05 or 1:05.25). Enter or leaving the box applies it, Esc puts the old value back, Up and Down nudge by 0.1 s (Shift: 1 s). */
-function timeBox(o) {
-  var id = 'ip' + (++uid), inp = h('input', { type: 'text', id: id, class: 'num tbox', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false', 'data-tb': o.l, 'aria-label': o.l + ' (minutes:seconds.hundredths)', placeholder: '0:00.00' });
-  function show() { var c = E.selClip(); if (!c || document.activeElement === inp) return; inp.value = E.fmtT(o.get(c)); }
-  function apply() {
-    var c = E.selClip(); if (!c) return; var v = E.parseTime(inp.value);
-    if (v == null) { E.emit('toast', 'Type a time like 12.5, 1:05 or 1:05.25.'); inp.value = E.fmtT(o.get(c)); return; }
-    refocus = o.l; /* editing rebuilds the panel, so put the cursor back in this box afterwards */
-    o.set(c, v);
-    var q = E.selClip();
-    if (q) {
-      var got = o.get(q);
-      if (Math.abs(got - v) > 0.011) E.emit('toast', o.l + ' set to ' + E.fmtT(got) + ', the closest time that fits.');
-      inp.value = E.fmtT(got); if (o.seek) E.seek(o.seek(q));
-    }
-    sync();
-  }
-  inp.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); apply(); inp.select(); }
-    else if (e.key === 'Escape') { var c = E.selClip(); if (c) inp.value = E.fmtT(o.get(c)); inp.blur(); }
-    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault(); var c2 = E.selClip(); if (!c2) return; var cur = E.parseTime(inp.value); if (cur == null) cur = o.get(c2);
-      inp.value = E.fmtT(Math.max(0, cur + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 1 : 0.1))); apply();
-    }
-    e.stopPropagation(); /* keep Space, S and Delete from reaching the editor shortcuts while typing */
-  });
-  inp.addEventListener('change', apply);
-  inp.addEventListener('focus', function () { setTimeout(function () { try { inp.select(); } catch (er) { /* fine */ } }, 0); });
-  inp.addEventListener('blur', show);
-  bound.push(show); show();
-  return h('div', { class: 'pr one' }, [h('label', { for: id, text: o.l }), inp]);
-}
-/* Timestamp boxes for the selected clip: where it sits on the timeline, and (video and sound) which part of the source plays. */
-function timeCtl(c, b) {
-  var src = (c.kind === 'video' || c.kind === 'audio') && c.media && E.media[c.media];
-  b.appendChild(timeBox({ l: 'Start', get: function (q) { return q.start; }, set: function (q, v) { E.setStart(q.id, v); }, seek: function (q) { return q.start; } }));
-  b.appendChild(timeBox({ l: 'End', get: function (q) { return q.start + q.dur; }, set: function (q, v) { E.setEnd(q.id, v); }, seek: function (q) { return Math.max(q.start, q.start + q.dur - 0.034); } }));
   b.appendChild(durCtl());
-  if (src) {
-    b.appendChild(h('div', { class: 'sec sub', text: 'Trim the source' }));
-    b.appendChild(timeBox({ l: 'Trim in', get: function (q) { return q['in']; }, set: function (q, v) { E.setSourceRange(q.id, v, null); }, seek: function (q) { return q.start; } }));
-    b.appendChild(timeBox({ l: 'Trim out', get: function (q) { return q['in'] + q.dur; }, set: function (q, v) { E.setSourceRange(q.id, null, v); }, seek: function (q) { return Math.max(q.start, q.start + q.dur - 0.034); } }));
-    var z = kv('Source length', E.fmtT(src.dur)); b.appendChild(z[0]);
-  }
-  b.appendChild(hint(src ? 'Type a time like 12.5, 1:05 or 1:05.25 and press Enter. Start and End place the clip on the timeline; Trim in and Trim out pick the part of the source that plays. Up and Down nudge by 0.1 s.' : 'Type a time like 12.5, 1:05 or 1:05.25 and press Enter. Up and Down nudge by 0.1 s. You can still drag the clip and its ends on the timeline.'));
+  if (c.kind === 'video' || c.kind === 'audio') {
+    var m = E.media[c.media], a = kv('Plays from', ''), z = kv('Source length', m ? E.fmtS(m.dur) : '');
+    b.appendChild(a[0]); b.appendChild(z[0]);
+    bound.push(function () { var q = E.selClip(); if (q) a[1].textContent = E.fmtS(q['in']) + ' to ' + E.fmtS(q['in'] + q.dur); });
+    b.appendChild(hint('Drag the white handles at the ends of the clip on the timeline to trim it, or press S to split at the playhead.'));
+  } else b.appendChild(hint('Drag the end of the clip on the timeline, or set the length here.'));
 }
 function durCtl() {
   var id = 'ip' + (++uid), inp = h('input', { type: 'range', id: id, step: 0.05 }), num = h('input', { type: 'number', class: 'num', step: 0.1, min: E.MIN, 'aria-label': 'Duration in seconds' });
@@ -4203,7 +4427,10 @@ function tabAudio(c, b) {
   if (c.kind === 'video' && m && !m.buffer) b.appendChild(hint('Reading the sound of this video\u2026'));
   else if (c.kind === 'video' && m && m.buffer && m.buffer.duration < 0.01) b.appendChild(hint('This video has no sound.'));
   if (c.kind === 'audio') {
-    b.appendChild(sec('Timing')); timeCtl(c, b);
+    b.appendChild(sec('Timing')); b.appendChild(durCtl());
+    var a = kv('Plays from', ''), z = kv('Source length', m ? E.fmtS(m.dur) : ''); b.appendChild(a[0]); b.appendChild(z[0]);
+    bound.push(function () { var q = E.selClip(); if (q) a[1].textContent = E.fmtS(q['in']) + ' to ' + E.fmtS(q['in'] + q.dur); });
+    b.appendChild(hint('Drag the handles on the ends of the sound clip to trim it.'));
   }
 }
 
@@ -4297,7 +4524,6 @@ function build() {
     list.forEach(function (t, i) { tl.children[i].setAttribute('aria-selected', String(t[0] === tn)); });
     ({ proj: tabProject, basic: tabBasic, cut: tabCut, anim: tabAnim, audio: tabAudio, text: tabText })[tn](c, body);
     body.scrollTop = keep; lastSel = c ? c.id : null; lastTab = tn; curKey = keyOf();
-    if (refocus) { var rf = body.querySelector('[data-tb="' + refocus + '"]'); refocus = null; if (rf) rf.focus(); }
   } finally { building = false; }
 }
 function sync() { for (var i = 0; i < bound.length; i++) bound[i](); }
@@ -4309,6 +4535,7 @@ E.on('project', onProject);
 E.on('audio', onProject);
 E.on('wand', build);
 E.on('live', syncSoon);
+E.on('time', function () { var c = E.selClip(); if (c && E.hasKf(c)) syncSoon(); }); /* animated values follow the playhead */
 E.on('opened', build);
 build();
 })();

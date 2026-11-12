@@ -19,11 +19,17 @@ E.clone = clone;
 
 /* ---------- defaults ---------- */
 E.defTf = function () { return { x: 0, y: 0, s: 1, r: 0, o: 1, fx: false, fy: false, fit: 'fit' }; };
+/* Keyframes: per clip, per transform parameter, a list of { t, v, e } sorted by t. t is seconds from the clip's start,
+   v the value, e how it eases towards the next keyframe: 'ease' (smooth), 'lin' (linear) or 'hold' (jump). An empty list means the parameter is not animated and the plain value in clip.tf is used. */
+E.KF_PARAMS = ['x', 'y', 's', 'r', 'o'];
+E.KF_EPS = 0.02;
+E.kfEase = 'ease';
+E.defKf = function () { return { x: [], y: [], s: [], r: [], o: [] }; };
 E.defAnim = function () { return { 'in': { t: 'none', d: 0.7 }, out: { t: 'none', d: 0.7 }, combo: { t: 'none', sp: 1 }, fold: { dir: 'lr', cols: 3, rows: 2, over: 40, tilt: 18, bend: 50, crease: 55 } }; };
 E.defCut = function () { return { on: false, style: 'torn', tex: 'plain', edge: 14, rough: 45, detail: 55, grain: 40, color: '#fbf7ee', boil: 3, boilFps: 8, boilLoop: 3, shadow: 20, shBlur: 14, rm: { on: true, tol: 46, feather: 2, wands: [] } }; };
 E.defText = function () { return { str: 'Your text', font: 'Anton', size: 120, color: '#ffffff', bold: false, align: 'center', ls: 0, lh: 1.1, strokeW: 0, strokeC: '#000000', shadow: true, box: false, boxC: '#000000', boxPad: 22, boxR: 14, ransom: false }; };
 E.newClip = function (kind, o) {
-  var c = { id: E.uid('c'), kind: kind, media: null, name: '', row: null, start: 0, dur: 4, 'in': 0, tf: E.defTf(), anim: E.defAnim(), cut: E.defCut(), vol: 1, fadeIn: 0, fadeOut: 0, mute: false };
+  var c = { id: E.uid('c'), kind: kind, media: null, name: '', row: null, start: 0, dur: 4, 'in': 0, tf: E.defTf(), kf: E.defKf(), anim: E.defAnim(), cut: E.defCut(), vol: 1, fadeIn: 0, fadeOut: 0, mute: false };
   if (kind === 'text') c.text = E.defText();
   if (o) for (var k in o) c[k] = o[k];
   return c;
@@ -152,7 +158,7 @@ E.trimClip = function (id, side, t, live) {
   var nb = E.neighbours(c), m = c.media ? E.media[c.media] : null, src = (c.kind === 'video' || c.kind === 'audio') && m;
   if (side === 'l') {
     var ns = clamp(t, Math.max(nb.lo, src ? c.start - c['in'] : 0), c.start + c.dur - E.MIN), d = ns - c.start;
-    c.start = ns; c.dur -= d; if (src) c['in'] += d;
+    c.start = ns; c.dur -= d; if (src) c['in'] += d; shiftKf(c, -d);
   } else {
     var maxEnd = Math.min(nb.hi, src ? c.start + (m.dur - c['in']) : Infinity), ne = clamp(t, c.start + E.MIN, maxEnd);
     c.dur = ne - c.start;
@@ -165,6 +171,84 @@ E.setDuration = function (id, dur) {
   var maxEnd = Math.min(nb.hi, src ? c.start + (m.dur - c['in']) : Infinity);
   c.dur = clamp(dur, E.MIN, maxEnd - c.start); E.emit('project'); E.dirty();
 };
+/* ---------- keyframes ---------- */
+function easeU(u, e) { return e === 'hold' ? 0 : e === 'lin' ? u : u * u * (3 - 2 * u); }
+function evalKf(a, t) {
+  var n = a.length; if (t <= a[0].t) return a[0].v; if (t >= a[n - 1].t) return a[n - 1].v;
+  var i = 1; while (i < n - 1 && a[i].t <= t) i++;
+  var p = a[i - 1], q = a[i], d = q.t - p.t; if (d < 1e-6) return q.v;
+  return p.v + (q.v - p.v) * easeU((t - p.t) / d, p.e);
+}
+E.hasKf = function (c) { var k = c && c.kf; if (!k) return false; for (var i = 0; i < 5; i++) if (k[E.KF_PARAMS[i]] && k[E.KF_PARAMS[i]].length) return true; return false; };
+E.isAnimated = function (c, p) { return !!(c && c.kf && c.kf[p] && c.kf[p].length); };
+/* The clip's time at the playhead, kept inside the clip. */
+E.localT = function (c) { return clamp(E.t - c.start, 0, c.dur); };
+/* The clip's transform at lt seconds after its start, with keyframes applied. */
+E.tfAt = function (c, lt) {
+  var tf = c.tf, o = { x: tf.x, y: tf.y, s: tf.s, r: tf.r, o: tf.o, fx: tf.fx, fy: tf.fy, fit: tf.fit }, k = c.kf;
+  if (k) for (var i = 0; i < 5; i++) { var p = E.KF_PARAMS[i], a = k[p]; if (a && a.length) o[p] = evalKf(a, lt); }
+  return o;
+};
+E.kfIndex = function (c, p, lt) { var a = c.kf && c.kf[p]; if (!a) return -1; for (var i = 0; i < a.length; i++) if (Math.abs(a[i].t - lt) <= E.KF_EPS) return i; return -1; };
+function kfInsert(a, k) { var i = 0; while (i < a.length && a[i].t < k.t) i++; a.splice(i, 0, k); }
+/* Set a parameter. An animated parameter gets a keyframe at lt (or its keyframe there is updated); otherwise the plain value changes. No history step: callers commit. */
+E.setTf = function (c, p, v, lt) {
+  var a = c.kf && c.kf[p];
+  if (a && a.length) { var i = E.kfIndex(c, p, lt); if (i >= 0) a[i].v = v; else kfInsert(a, { t: lt, v: v, e: E.kfEase }); }
+  else c.tf[p] = v;
+};
+/* Diamond button: add a keyframe at lt for each parameter in ps, or remove them when all already have one there. */
+E.toggleKf = function (c, ps, lt) {
+  if (!c.kf) c.kf = E.defKf();
+  var all = ps.every(function (p) { return E.kfIndex(c, p, lt) >= 0; }), cur = E.tfAt(c, lt);
+  ps.forEach(function (p) {
+    var a = c.kf[p], i = E.kfIndex(c, p, lt);
+    if (all) { var gone = a.splice(i, 1)[0]; if (!a.length) c.tf[p] = gone.v; }
+    else if (i < 0) kfInsert(a, { t: lt, v: cur[p], e: E.kfEase });
+  });
+  E.emit('project'); E.dirty(); E.commit();
+};
+/* Stop animating a parameter and keep the value it has at lt. */
+E.clearKf = function (c, ps, lt) {
+  var cur = E.tfAt(c, lt); ps.forEach(function (p) { if (c.kf && c.kf[p] && c.kf[p].length) { c.tf[p] = cur[p]; c.kf[p] = []; } });
+  E.emit('project'); E.dirty(); E.commit();
+};
+/* Times (seconds from clip start) that carry at least one keyframe, ascending and merged. */
+E.kfTimes = function (c) {
+  var ts = []; if (!c.kf) return ts;
+  E.KF_PARAMS.forEach(function (p) { (c.kf[p] || []).forEach(function (k) { if (!ts.some(function (t) { return Math.abs(t - k.t) <= E.KF_EPS; })) ts.push(k.t); }); });
+  return ts.sort(function (a, b) { return a - b; });
+};
+/* Slide every keyframe at time `from` to time `to` (dragging a diamond on the timeline). Returns the time actually used. */
+E.moveKfTime = function (c, from, to) {
+  if (!c.kf) return from;
+  var blocked = E.kfTimes(c).some(function (t) { return Math.abs(t - from) > E.KF_EPS && Math.abs(t - to) <= E.KF_EPS; });
+  if (blocked) return from;
+  E.KF_PARAMS.forEach(function (p) { var a = c.kf[p]; if (!a) return; a.forEach(function (k) { if (Math.abs(k.t - from) <= E.KF_EPS) k.t = to; }); a.sort(function (x, y) { return x.t - y.t; }); });
+  return to;
+};
+/* Set how keyframes at lt ease towards the next one. With none there, only the default for new keyframes changes. */
+E.setKfEase = function (c, lt, e) {
+  E.kfEase = e; var hit = false;
+  if (c && c.kf) E.KF_PARAMS.forEach(function (p) { var i = E.kfIndex(c, p, lt); if (i >= 0) { c.kf[p][i].e = e; hit = true; } });
+  if (hit) { E.emit('project'); E.dirty(); E.commit(); }
+};
+/* The clip is cut at d seconds: b is a copy made from c. Each animated parameter gets a keyframe at the cut so the motion carries on unbroken. */
+function splitKf(c, b, d) {
+  E.KF_PARAMS.forEach(function (p) {
+    var a = c.kf && c.kf[p]; if (!a || !a.length) return;
+    var v = evalKf(a, d), ease = 'ease', i;
+    for (i = 0; i < a.length; i++) if (a[i].t <= d) ease = a[i].e;
+    c.kf[p] = a.filter(function (k) { return k.t < d - E.KF_EPS; }).concat([{ t: d, v: v, e: ease }]);
+    b.kf[p] = [{ t: 0, v: v, e: ease }].concat(a.filter(function (k) { return k.t > d + E.KF_EPS; }).map(function (k) { return { t: k.t - d, v: k.v, e: k.e }; }));
+  });
+}
+/* The clip's left edge moved by d seconds: keep keyframes at the same moment of the timeline. */
+function shiftKf(c, d) {
+  if (!c.kf || !d) return;
+  E.KF_PARAMS.forEach(function (p) { (c.kf[p] || []).forEach(function (k) { k.t += d; }); });
+}
+
 /* ---------- typed timing (timestamp boxes) ---------- */
 /* Reads "12", "12.5", "1:05", "1:05.25" or "0:01:05" as seconds; returns null when it is not a time. */
 E.parseTime = function (s) {
@@ -207,6 +291,7 @@ E.splitClip = function (id, t) {
   var b = clone(c); b.id = E.uid('c');
   var d = t - c.start;
   b.start = t; b.dur = c.dur - d; if (c.kind === 'video' || c.kind === 'audio') b['in'] = c['in'] + d;
+  splitKf(c, b, d);
   c.dur = d;
   c.anim.out.t = 'none'; b.anim['in'].t = 'none'; c.fadeOut = 0; b.fadeIn = 0;
   E.proj.clips.push(b);
