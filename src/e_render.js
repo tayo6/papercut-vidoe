@@ -209,11 +209,11 @@ function baseScale(c, src, w, h) {
   return fill ? Math.max(w / src.mw, h / src.mh) : Math.min(w / src.mw, h / src.mh);
 }
 /* Box the clip occupies on a w x h frame, for the on-canvas handles: centre, size, rotation (static transform only). */
-E.boxOf = function (c, w, h) {
+E.boxOf = function (c, w, h, T) {
   var needPaper = c.cut.on, src;
   try { src = sourceOf(c, c.start, needPaper, false); } catch (e) { src = null; }
   if (!src) { var m = c.media && E.media[c.media]; if (!m) return null; src = { w: m.w || 100, h: m.h || 100, k: 1, ox: 0, oy: 0, mw: m.w || 100, mh: m.h || 100, img: null }; }
-  var tf = c.tf, s = baseScale(c, src, w, h) * tf.s, rot = tf.r * PI / 180;
+  var tf = E.tfAt(c, T == null ? E.localT(c) : T - c.start), s = baseScale(c, src, w, h) * tf.s, rot = tf.r * PI / 180;
   var ox = src.ox * s * (tf.fx ? -1 : 1), oy = src.oy * s * (tf.fy ? -1 : 1), cr = Math.cos(rot), sr = Math.sin(rot);
   var padPx = src.paper && src.img && src.img.pad ? src.img.pad : 0;
   return { cx: w / 2 + tf.x * w + ox * cr - oy * sr, cy: h / 2 + tf.y * h + ox * sr + oy * cr, bw: (src.w - padPx * 2) * src.k * s, bh: (src.h - padPx * 2) * src.k * s, rot: rot };
@@ -233,7 +233,7 @@ function tearPath(ctx, hw, hh, e, edge) {
 }
 
 function drawClip(ctx, w, h, c, T) {
-  var lt = T - c.start, st = animState(c, lt), tf = c.tf, cut = c.cut;
+  var lt = T - c.start, st = animState(c, lt), tf = E.tfAt(c, lt), cut = c.cut;
   var needPaper = E.needsPaper(c, st), src = sourceOf(c, T, needPaper, !!st.fold);
   if (!src) return;
   var base = baseScale(c, src, w, h), s = base * tf.s * st.s;
@@ -282,7 +282,7 @@ E.hitTest = function (px, py, w, h, T) {
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i]; if (r.kind !== 'v' || r.hide) continue;
     var c = E.clipAt(r.id, T); if (!c) continue;
-    var b = E.boxOf(c, w, h); if (!b) continue;
+    var b = E.boxOf(c, w, h, T); if (!b) continue;
     var dx = px - b.cx, dy = py - b.cy, cr = Math.cos(-b.rot), sr = Math.sin(-b.rot), lx = dx * cr - dy * sr, ly = dx * sr + dy * cr;
     if (Math.abs(lx) <= b.bw / 2 && Math.abs(ly) <= b.bh / 2) return c;
   }

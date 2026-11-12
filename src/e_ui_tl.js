@@ -78,7 +78,12 @@ function buildClip(c) {
   el.appendChild(h('span', { class: 'c-name', text: labelOf(c) }));
   var hl = h('i', { class: 'h hl' }), hr = h('i', { class: 'h hr' }); el.appendChild(hl); el.appendChild(hr);
   paintClip(el, c);
-  el.addEventListener('pointerdown', function (e) { if (e.target === hl) startTrim(e, c.id, 'l'); else if (e.target === hr) startTrim(e, c.id, 'r'); else startMove(e, c.id); });
+  var cw = Math.max(6, c.dur * pps);
+  E.kfTimes(c).forEach(function (t) { if (t < -1e-6 || t > c.dur + 1e-6) return; el.appendChild(h('i', { class: 'kfm', 'data-t': String(t), title: 'Keyframe: click to jump here, drag to move it', style: { left: clamp(t * pps, 7, Math.max(7, cw - 7)) + 'px' }, html: U.kfIcon(11) })); });
+  el.addEventListener('pointerdown', function (e) {
+    var km = e.target.closest && e.target.closest('.kfm');
+    if (km) startKf(e, c.id, km); else if (e.target === hl) startTrim(e, c.id, 'l'); else if (e.target === hr) startTrim(e, c.id, 'r'); else startMove(e, c.id);
+  });
   el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); E.select(c.id); } });
   clipEls[c.id] = el; return el;
 }
@@ -160,6 +165,7 @@ function startMove(e, id) {
 function onMove(e) {
   var d = drag; if (!d || e.pointerId !== d.pid) return; d.last = e;
   if (d.type === 'trim') { trimTo(e); return; }
+  if (d.type === 'kf') { kfTo(e); return; }
   var c = E.clipById(d.id); if (!c) return;
   if (!d.moved && Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 5) return;
   d.moved = true; d.el.classList.add('drag');
@@ -171,11 +177,12 @@ function onUp(e) {
   var d = drag; if (!d || e.pointerId !== d.pid) return;
   unhook(); clearGhost();
   if (d.type === 'trim') { drag = null; E.emit('project'); E.commit(); return; }
+  if (d.type === 'kf') { drag = null; if (d.moved) { E.emit('project'); E.commit(); } return; }
   var id = d.id, moved = d.moved, tgt = d.target, st = d.start; drag = null;
   if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; }
   if (moved && tgt) E.moveClip(id, tgt, st);
 }
-function onCancel(e) { var d = drag; if (!d) return; unhook(); clearGhost(); if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; } if (d.type === 'trim') { E.emit('project'); E.commit(); } drag = null; }
+function onCancel(e) { var d = drag; if (!d) return; unhook(); clearGhost(); if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; } if (d.type === 'trim' || (d.type === 'kf' && d.moved)) { E.emit('project'); E.commit(); } drag = null; }
 function unhook() { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onCancel); }
 function autoScroll() {
   if (!drag) return;
@@ -202,6 +209,26 @@ function trimTo(e) {
   var el = clipEls[d.id]; el.style.left = (c.start * pps) + 'px'; el.style.width = Math.max(6, c.dur * pps) + 'px';
   if (c.kind === 'video' || c.kind === 'audio') repaintSoon();
   E.seek(d.side === 'l' ? c.start : Math.max(c.start, c.start + c.dur - 0.034));
+}
+
+/* ---------- keyframe diamonds: click to jump the playhead there, drag to move them in time ---------- */
+function startKf(e, id, mk) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  var c = E.clipById(id); if (!c) return;
+  e.stopPropagation(); e.preventDefault(); E.select(id); E.pause();
+  var t0 = parseFloat(mk.getAttribute('data-t')) || 0;
+  drag = { type: 'kf', id: id, mk: mk, t: t0, moved: false, sx: e.clientX, pid: e.pointerId, last: e };
+  E.seek(c.start + clamp(t0, 0, c.dur));
+  try { mk.setPointerCapture(e.pointerId); } catch (er) { /* fine */ }
+  window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onCancel);
+}
+function kfTo(e) {
+  var d = drag, c = E.clipById(d.id); if (!c) return;
+  if (!d.moved && Math.abs(e.clientX - d.sx) < 4) return;
+  d.moved = true;
+  var t = Math.round(clamp(timeAt(e.clientX) - c.start, 0, c.dur) * 100) / 100, got = E.moveKfTime(c, d.t, t);
+  d.t = got; d.mk.setAttribute('data-t', String(got)); d.mk.style.left = clamp(got * pps, 7, Math.max(7, c.dur * pps - 7)) + 'px';
+  E.dirty(); E.seek(c.start + got);
 }
 
 /* ---------- drops from the library or the desktop ---------- */

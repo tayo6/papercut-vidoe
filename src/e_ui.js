@@ -36,6 +36,7 @@ var IC = {
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>', scissors: '<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8 7.5L20 17M8 16.5L20 7"/>',
   wand: '<path d="M4 20L15 9M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.6 1.4L21 14l-1.4.6L19 16l-.6-1.4L17 14l1.4-.6z"/>', fliph: '<path d="M12 3v18M8 7L3 17h5zM16 7l5 10h-5z"/>', flipv: '<path d="M3 12h18M7 8l10-5v5zM7 16l10 5v-5z"/>'
 };
+U.kfIcon = function (s) { s = s || 14; return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M12 2.5 21.5 12 12 21.5 2.5 12Z" stroke-width="2.4" stroke-linejoin="round"/></svg>'; };
 U.ic = function (n, s) { s = s || 18; return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[n] || '') + '</svg>'; };
 function fillIcons(root) { Array.prototype.forEach.call((root || $('ed')).querySelectorAll('[data-ic]'), function (el) { if (!el.getAttribute('data-done')) { el.insertAdjacentHTML('afterbegin', U.ic(el.getAttribute('data-ic'), el.classList.contains('em-ic') ? 24 : 18)); el.setAttribute('data-done', '1'); } }); }
 U.fillIcons = fillIcons;
@@ -96,7 +97,7 @@ function insideBox(c, p) {
 }
 /* where a point of the frame lands on the original photo, 0..1 (for the background picker) */
 function imageUV(c, p) {
-  var m = E.media[c.media], w = cv.width, hh = cv.height, tf = c.tf, s = (tf.fit === 'fill' ? Math.max(w / m.w, hh / m.h) : Math.min(w / m.w, hh / m.h)) * tf.s, rot = tf.r * Math.PI / 180;
+  var m = E.media[c.media], w = cv.width, hh = cv.height, tf = E.tfAt(c, E.localT(c)), s = (tf.fit === 'fill' ? Math.max(w / m.w, hh / m.h) : Math.min(w / m.w, hh / m.h)) * tf.s, rot = tf.r * Math.PI / 180;
   var dx = p.x - (w / 2 + tf.x * w), dy = p.y - (hh / 2 + tf.y * hh), cr = Math.cos(-rot), sr = Math.sin(-rot), lx = dx * cr - dy * sr, ly = dx * sr + dy * cr;
   if (tf.fx) lx = -lx; if (tf.fy) ly = -ly;
   return [lx / (m.w * s) + 0.5, ly / (m.h * s) + 0.5];
@@ -116,13 +117,14 @@ stage.addEventListener('pointerdown', function (e) {
     return;
   }
   if (hd && c) {
-    drag = { mode: hd.getAttribute('data-h'), id: c.id, tf0: E.clone(c.tf), cen: { x: w / 2 + c.tf.x * w, y: hh / 2 + c.tf.y * hh }, p0: p };
+    var tv = E.tfAt(c, E.localT(c));
+    drag = { mode: hd.getAttribute('data-h'), id: c.id, lt: E.localT(c), tf0: tv, cen: { x: w / 2 + tv.x * w, y: hh / 2 + tv.y * hh }, p0: p };
     drag.r0 = Math.max(8, Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y)); drag.a0 = Math.atan2(p.y - drag.cen.y, p.x - drag.cen.x);
   } else {
     var hit = (c && insideBox(c, p)) ? c : E.hitTest(p.x, p.y, w, hh, E.t);
     if (!hit) { E.select(null); return; }
     if (hit.id !== E.sel) E.select(hit.id);
-    drag = { mode: 'm', id: hit.id, tf0: E.clone(hit.tf), x0: e.clientX, y0: e.clientY };
+    drag = { mode: 'm', id: hit.id, lt: E.localT(hit), tf0: E.tfAt(hit, E.localT(hit)), x0: e.clientX, y0: e.clientY };
   }
   drag.moved = false; try { stage.setPointerCapture(e.pointerId); } catch (er) { /* not capturable */ }
   e.preventDefault();
@@ -130,21 +132,22 @@ stage.addEventListener('pointerdown', function (e) {
 stage.addEventListener('pointermove', function (e) {
   if (!drag) return;
   var c = E.clipById(drag.id); if (!c) return;
-  var w = cv.width, hh = cv.height, p = frameXY(e), tf = c.tf, t0 = drag.tf0, gx = false, gy = false;
+  var w = cv.width, hh = cv.height, p = frameXY(e), t0 = drag.tf0, lt = drag.lt, gx = false, gy = false; /* animated values get a keyframe at the playhead; plain ones just change */
   if (drag.mode === 'm') {
     var r = stage.getBoundingClientRect(), dx = (e.clientX - drag.x0) * cv.width / r.width, dy = (e.clientY - drag.y0) * cv.height / r.height;
     if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
-    tf.x = t0.x + dx / w; tf.y = t0.y + dy / hh;
-    if (Math.abs(tf.x) < 0.012) { tf.x = 0; gx = true; } if (Math.abs(tf.y) < 0.012) { tf.y = 0; gy = true; }
+    var nx = t0.x + dx / w, ny = t0.y + dy / hh;
+    if (Math.abs(nx) < 0.012) { nx = 0; gx = true; } if (Math.abs(ny) < 0.012) { ny = 0; gy = true; }
+    E.setTf(c, 'x', nx, lt); E.setTf(c, 'y', ny, lt);
   } else if (drag.mode === 's') {
-    tf.s = clamp(t0.s * Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y) / drag.r0, 0.03, 10);
+    E.setTf(c, 's', clamp(t0.s * Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y) / drag.r0, 0.03, 10), lt);
   } else {
     var a = Math.atan2(p.y - drag.cen.y, p.x - drag.cen.x), deg = t0.r + (a - drag.a0) * 180 / Math.PI;
-    deg = ((deg + 180) % 360 + 360) % 360 - 180; var q = Math.round(deg / 45) * 45; if (Math.abs(deg - q) < 4) deg = q; tf.r = deg;
+    deg = ((deg + 180) % 360 + 360) % 360 - 180; var q = Math.round(deg / 45) * 45; if (Math.abs(deg - q) < 4) deg = q; E.setTf(c, 'r', deg, lt);
   }
   drag.moved = true; guides(gx, gy); U.live();
 });
-function endDrag() { if (!drag) return; var m = drag.moved; drag = null; guides(false, false); if (m) { E.commit(); E.emit('live'); } }
+function endDrag() { if (!drag) return; var m = drag.moved; drag = null; guides(false, false); if (m) { E.commit(); E.emit('live'); E.emit('project'); } }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
 
 /* ---------- transport ---------- */
