@@ -126,6 +126,8 @@ body.ed-on .wrap { display: none; }
 .ed .num, .ed .es, .ed .ti { height: 30px; border-radius: 6px; border: 1px solid var(--e-line); background: var(--e-p2); padding: 0 7px; width: 100%; min-width: 0; }
 .ed .num { text-align: right; font: 12px var(--f-mono); padding: 0 4px; }
 .ed textarea.ti { height: auto; min-height: 76px; padding: 7px; resize: vertical; line-height: 1.35; }
+.sec.sub { margin-top: 12px; }
+.ed .num.tbox { text-align: left; padding: 0 9px; letter-spacing: .02em; }
 .ed .num:focus, .ed .es:focus, .ed .ti:focus { border-color: var(--e-acc); outline: 0; }
 .ed input[type="color"] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--e-line); border-radius: 6px; background: none; cursor: pointer; }
 .seg { display: flex; border: 1px solid var(--e-line); border-radius: 6px; overflow: hidden; }

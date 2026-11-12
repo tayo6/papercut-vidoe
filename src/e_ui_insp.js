@@ -2,7 +2,7 @@
 'use strict';
 /* Video editor properties panel: transform, cut-out, animation, audio and text settings for the selected clip, project settings otherwise. */
 var K = window.__snip, E = K.E, U = E.ui, h = U.h, $ = U.$, clamp = K.clamp;
-var I = U.insp = {}, bound = [], uid = 0, tabName = 'basic', curKey = '', lastSel = null, lastTab = null, lastKind = null, building = false;
+var I = U.insp = {}, bound = [], uid = 0, tabName = 'basic', curKey = '', lastSel = null, lastTab = null, lastKind = null, building = false, refocus = null;
 
 function gp(o, p) { var a = p.split('.'), v = o; for (var i = 0; i < a.length && v != null; i++) v = v[a[i]]; return v; }
 function sp(o, p, val) { var a = p.split('.'), v = o; for (var i = 0; i < a.length - 1; i++) v = v[a[i]]; v[a[a.length - 1]] = val; }
@@ -74,13 +74,53 @@ function tabBasic(c, b) {
   b.appendChild(sec('Blend'));
   b.appendChild(rng({ l: 'Opacity', p: 'tf.o', min: 0, max: 1, step: 0.01, sc: 100, dec: 0 }));
   b.appendChild(sec('Timing'));
+  timeCtl(c, b);
+}
+/* A box you type a time into (12.5, 1:05 or 1:05.25). Enter or leaving the box applies it, Esc puts the old value back, Up and Down nudge by 0.1 s (Shift: 1 s). */
+function timeBox(o) {
+  var id = 'ip' + (++uid), inp = h('input', { type: 'text', id: id, class: 'num tbox', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false', 'data-tb': o.l, 'aria-label': o.l + ' (minutes:seconds.hundredths)', placeholder: '0:00.00' });
+  function show() { var c = E.selClip(); if (!c || document.activeElement === inp) return; inp.value = E.fmtT(o.get(c)); }
+  function apply() {
+    var c = E.selClip(); if (!c) return; var v = E.parseTime(inp.value);
+    if (v == null) { E.emit('toast', 'Type a time like 12.5, 1:05 or 1:05.25.'); inp.value = E.fmtT(o.get(c)); return; }
+    refocus = o.l; /* editing rebuilds the panel, so put the cursor back in this box afterwards */
+    o.set(c, v);
+    var q = E.selClip();
+    if (q) {
+      var got = o.get(q);
+      if (Math.abs(got - v) > 0.011) E.emit('toast', o.l + ' set to ' + E.fmtT(got) + ', the closest time that fits.');
+      inp.value = E.fmtT(got); if (o.seek) E.seek(o.seek(q));
+    }
+    sync();
+  }
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); apply(); inp.select(); }
+    else if (e.key === 'Escape') { var c = E.selClip(); if (c) inp.value = E.fmtT(o.get(c)); inp.blur(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); var c2 = E.selClip(); if (!c2) return; var cur = E.parseTime(inp.value); if (cur == null) cur = o.get(c2);
+      inp.value = E.fmtT(Math.max(0, cur + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 1 : 0.1))); apply();
+    }
+    e.stopPropagation(); /* keep Space, S and Delete from reaching the editor shortcuts while typing */
+  });
+  inp.addEventListener('change', apply);
+  inp.addEventListener('focus', function () { setTimeout(function () { try { inp.select(); } catch (er) { /* fine */ } }, 0); });
+  inp.addEventListener('blur', show);
+  bound.push(show); show();
+  return h('div', { class: 'pr one' }, [h('label', { for: id, text: o.l }), inp]);
+}
+/* Timestamp boxes for the selected clip: where it sits on the timeline, and (video and sound) which part of the source plays. */
+function timeCtl(c, b) {
+  var src = (c.kind === 'video' || c.kind === 'audio') && c.media && E.media[c.media];
+  b.appendChild(timeBox({ l: 'Start', get: function (q) { return q.start; }, set: function (q, v) { E.setStart(q.id, v); }, seek: function (q) { return q.start; } }));
+  b.appendChild(timeBox({ l: 'End', get: function (q) { return q.start + q.dur; }, set: function (q, v) { E.setEnd(q.id, v); }, seek: function (q) { return Math.max(q.start, q.start + q.dur - 0.034); } }));
   b.appendChild(durCtl());
-  if (c.kind === 'video' || c.kind === 'audio') {
-    var m = E.media[c.media], a = kv('Plays from', ''), z = kv('Source length', m ? E.fmtS(m.dur) : '');
-    b.appendChild(a[0]); b.appendChild(z[0]);
-    bound.push(function () { var q = E.selClip(); if (q) a[1].textContent = E.fmtS(q['in']) + ' to ' + E.fmtS(q['in'] + q.dur); });
-    b.appendChild(hint('Drag the white handles at the ends of the clip on the timeline to trim it, or press S to split at the playhead.'));
-  } else b.appendChild(hint('Drag the end of the clip on the timeline, or set the length here.'));
+  if (src) {
+    b.appendChild(h('div', { class: 'sec sub', text: 'Trim the source' }));
+    b.appendChild(timeBox({ l: 'Trim in', get: function (q) { return q['in']; }, set: function (q, v) { E.setSourceRange(q.id, v, null); }, seek: function (q) { return q.start; } }));
+    b.appendChild(timeBox({ l: 'Trim out', get: function (q) { return q['in'] + q.dur; }, set: function (q, v) { E.setSourceRange(q.id, null, v); }, seek: function (q) { return Math.max(q.start, q.start + q.dur - 0.034); } }));
+    var z = kv('Source length', E.fmtT(src.dur)); b.appendChild(z[0]);
+  }
+  b.appendChild(hint(src ? 'Type a time like 12.5, 1:05 or 1:05.25 and press Enter. Start and End place the clip on the timeline; Trim in and Trim out pick the part of the source that plays. Up and Down nudge by 0.1 s.' : 'Type a time like 12.5, 1:05 or 1:05.25 and press Enter. Up and Down nudge by 0.1 s. You can still drag the clip and its ends on the timeline.'));
 }
 function durCtl() {
   var id = 'ip' + (++uid), inp = h('input', { type: 'range', id: id, step: 0.05 }), num = h('input', { type: 'number', class: 'num', step: 0.1, min: E.MIN, 'aria-label': 'Duration in seconds' });
@@ -176,10 +216,7 @@ function tabAudio(c, b) {
   if (c.kind === 'video' && m && !m.buffer) b.appendChild(hint('Reading the sound of this video\u2026'));
   else if (c.kind === 'video' && m && m.buffer && m.buffer.duration < 0.01) b.appendChild(hint('This video has no sound.'));
   if (c.kind === 'audio') {
-    b.appendChild(sec('Timing')); b.appendChild(durCtl());
-    var a = kv('Plays from', ''), z = kv('Source length', m ? E.fmtS(m.dur) : ''); b.appendChild(a[0]); b.appendChild(z[0]);
-    bound.push(function () { var q = E.selClip(); if (q) a[1].textContent = E.fmtS(q['in']) + ' to ' + E.fmtS(q['in'] + q.dur); });
-    b.appendChild(hint('Drag the handles on the ends of the sound clip to trim it.'));
+    b.appendChild(sec('Timing')); timeCtl(c, b);
   }
 }
 
@@ -273,6 +310,7 @@ function build() {
     list.forEach(function (t, i) { tl.children[i].setAttribute('aria-selected', String(t[0] === tn)); });
     ({ proj: tabProject, basic: tabBasic, cut: tabCut, anim: tabAnim, audio: tabAudio, text: tabText })[tn](c, body);
     body.scrollTop = keep; lastSel = c ? c.id : null; lastTab = tn; curKey = keyOf();
+    if (refocus) { var rf = body.querySelector('[data-tb="' + refocus + '"]'); refocus = null; if (rf) rf.focus(); }
   } finally { building = false; }
 }
 function sync() { for (var i = 0; i < bound.length; i++) bound[i](); }

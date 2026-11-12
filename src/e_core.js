@@ -165,6 +165,42 @@ E.setDuration = function (id, dur) {
   var maxEnd = Math.min(nb.hi, src ? c.start + (m.dur - c['in']) : Infinity);
   c.dur = clamp(dur, E.MIN, maxEnd - c.start); E.emit('project'); E.dirty();
 };
+/* ---------- typed timing (timestamp boxes) ---------- */
+/* Reads "12", "12.5", "1:05", "1:05.25" or "0:01:05" as seconds; returns null when it is not a time. */
+E.parseTime = function (s) {
+  s = String(s == null ? '' : s).trim().replace(/,/g, '.').replace(/s$/i, '');
+  if (!s || !/^\d*\.?\d*(:\d*\.?\d*){0,2}$/.test(s)) return null;
+  var p = s.split(':'), v = 0, i;
+  for (i = 0; i < p.length; i++) { var n = p[i] === '' ? 0 : parseFloat(p[i]); if (isNaN(n)) return null; v = v * 60 + n; }
+  return isFinite(v) ? v : null;
+};
+/* Shows seconds as m:ss.cc, e.g. 65.25 -> 1:05.25 */
+E.fmtT = function (t) {
+  t = Math.max(0, t || 0); var cs = Math.round(t * 100), m = Math.floor(cs / 6000), s = Math.floor((cs % 6000) / 100), c = cs % 100;
+  return m + ':' + (s < 10 ? '0' : '') + s + '.' + (c < 10 ? '0' : '') + c;
+};
+/* Move a clip so it starts at t (its length stays the same). It lands in the nearest free gap of its row. Returns the start it really got. */
+E.setStart = function (id, t) {
+  var c = E.clipById(id); if (!c) return null;
+  c.start = E.freeStart(c.row, Math.max(0, t), c.dur, c.id);
+  done(c.id); return c.start;
+};
+/* Trim the right edge so the clip ends at timeline time t. */
+E.setEnd = function (id, t) {
+  var c = E.clipById(id); if (!c) return null;
+  E.trimClip(id, 'r', t, false); return c.start + c.dur;
+};
+/* Video and sound clips: choose which part of the source plays. The clip keeps its place on the timeline; its length follows the range. */
+E.setSourceRange = function (id, tin, tout) {
+  var c = E.clipById(id), m = c && c.media ? E.media[c.media] : null;
+  if (!c || !m || !(c.kind === 'video' || c.kind === 'audio')) return null;
+  var nb = E.neighbours(c), oldOut = c['in'] + c.dur, ni = tin == null ? c['in'] : tin, no = tout == null ? oldOut : tout;
+  ni = clamp(ni, 0, Math.max(0, m.dur - E.MIN));
+  no = clamp(no, ni + E.MIN, m.dur);
+  if (isFinite(nb.hi)) no = Math.min(no, ni + (nb.hi - c.start));
+  c['in'] = ni; c.dur = Math.max(E.MIN, no - ni);
+  done(c.id); return { 'in': c['in'], out: c['in'] + c.dur };
+};
 E.splitClip = function (id, t) {
   var c = E.clipById(id); if (!c) return null;
   if (t <= c.start + 0.05 || t >= c.start + c.dur - 0.05) return null;
