@@ -1439,7 +1439,7 @@ function build() {
     var tn = list.some(function (t) { return t[0] === tabName; }) ? tabName : list[0][0]; if (c) { tabName = tn; lastKind = c.kind; }
     var keep = (c ? c.id : null) === lastSel && tn === lastTab ? body.scrollTop : 0;
     tl.textContent = ''; body.textContent = ''; bound = [];
-    tl.hidden = !c;
+    tl.hidden = false;
     list.forEach(function (t) { tl.appendChild(h('button', { class: 'et', type: 'button', role: 'tab', 'aria-selected': 'false', html: U.ic(t[2], 18) + '<span>' + t[1] + '</span>', onclick: function () { tabName = t[0]; build(); } })); });
     list.forEach(function (t, i) { tl.children[i].setAttribute('aria-selected', String(t[0] === tn)); });
     ({ proj: tabProject, basic: tabBasic, cut: tabCut, anim: tabAnim, audio: tabAudio, text: tabText, script: tabScript })[tn](c, body);
