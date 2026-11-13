@@ -225,21 +225,7 @@ E.boxOf = function (c, w, h, T) {
 };
 
 function scriptedClip(c, frame) {
-  if (!frame || !frame.scriptedValues) return c;
-  var v = frame.scriptedValues, out = null;
-  if (c.text && (Object.prototype.hasOwnProperty.call(v, 'text.fontSize') || Object.prototype.hasOwnProperty.call(v, 'text.color'))) {
-    out = Object.assign({}, c);
-    out.text = Object.assign({}, c.text);
-    if (Object.prototype.hasOwnProperty.call(v, 'text.fontSize')) out.text.size = frame.text.fontSize;
-    if (Object.prototype.hasOwnProperty.call(v, 'text.color')) out.text.color = frame.text.color;
-  }
-  if (c.cut && (Object.prototype.hasOwnProperty.call(v, 'paper.edge') || Object.prototype.hasOwnProperty.call(v, 'paper.roughness'))) {
-    if (!out) out = Object.assign({}, c);
-    out.cut = Object.assign({}, c.cut);
-    if (Object.prototype.hasOwnProperty.call(v, 'paper.edge')) out.cut.edge = frame.paper.edge;
-    if (Object.prototype.hasOwnProperty.call(v, 'paper.roughness')) out.cut.rough = frame.paper.roughness;
-  }
-  return out || c;
+  return E.applyScriptedProperties ? E.applyScriptedProperties(c, frame) : c;
 }
 
 function drawBG(ctx, w, h, T) {

@@ -2,7 +2,7 @@
 'use strict';
 /* SnipScript v2: bounded expressions plus deterministic clip-local cues. */
 var K=window.__snip,E=K.E,CACHE=new WeakMap();
-var ALLOWED={'transform.x':1,'transform.y':1,'transform.scale':1,'transform.rotation':1,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':1,'audio.fadeOut':1,'text.fontSize':1,'text.color':1,'paper.edge':1,'paper.roughness':1};
+var ALLOWED={'transform.x':1,'transform.y':1,'transform.scale':1,'transform.rotation':1,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':1,'audio.fadeOut':1,'text.fontSize':1,'text.color':1,'paper.enabled':1,'paper.edge':1,'paper.roughness':1,'paper.detail':1,'paper.grain':1,'paper.color':1,'paper.boil':1,'paper.boilFps':1,'paper.boilLoop':1,'paper.shadow':1,'paper.shadowBlur':1};
 var PREC={'+':1,'-':1,'*':2,'/':2,'%':2,'^':3};
 var FUNCS={
  abs:Math.abs,min:Math.min,max:Math.max,sin:Math.sin,cos:Math.cos,tan:Math.tan,round:Math.round,floor:Math.floor,ceil:Math.ceil,sqrt:Math.sqrt,pow:Math.pow,sign:Math.sign,
@@ -31,7 +31,7 @@ function parseExpr(s,line){var ts=tokens(s,line),at=0;
   if(t.type==='number'||t.type==='color')return {type:t.type,value:t.value};
   if(t.type==='op'&&(t.value==='+'||t.value==='-'))return {type:'unary',op:t.value,right:primary(depth+1)};
   if(t.type==='op'&&t.value==='('){var inner=expr(0,depth+1);if(!ts[at]||ts[at++].value!==')')fail(line,'Missing closing parenthesis.');return inner;}
-  if(t.type==='name'){name=t.value;if(ts[at]&&ts[at].value==='('){at++;if(!ts[at]||ts[at].value!==')')while(true){args.push(expr(0,depth+1));if(ts[at]&&ts[at].value===','){at++;continue;}break;}
+  if(t.type==='name'){name=t.value;if(name==='true'||name==='false')return {type:'boolean',value:name==='true'};if(ts[at]&&ts[at].value==='('){at++;if(!ts[at]||ts[at].value!==')')while(true){args.push(expr(0,depth+1));if(ts[at]&&ts[at].value===','){at++;continue;}break;}
    if(!ts[at]||ts[at++].value!==')')fail(line,'Missing closing parenthesis in function call.');if(!Object.prototype.hasOwnProperty.call(FUNCS,name))fail(line,'Function "'+name+'" is not allowed.');
    if(args.length<1||args.length>8)fail(line,'Functions need between 1 and 8 arguments.');if(name==='clamp'&&args.length!==3)fail(line,'clamp() needs 3 arguments.');
    if((name==='pow'||name==='lerp')&&args.length!==(name==='pow'?2:3))fail(line,name+'() needs '+(name==='pow'?2:3)+' arguments.');
@@ -42,12 +42,12 @@ function parseExpr(s,line){var ts=tokens(s,line),at=0;
  function expr(min,depth){var left=primary(depth),t,op,p,right;while((t=ts[at])&&t.type==='op'&&Object.prototype.hasOwnProperty.call(PREC,t.value)){op=t.value;p=PREC[op];if(p<min)break;at++;right=expr(p+(op==='^'?0:1),depth+1);left={type:'binary',op:op,left:left,right:right};}return left;}
  if(!ts.length)fail(line,'Expression is empty.');var ast=expr(0,0);if(at!==ts.length)fail(line,'Unexpected token "'+ts[at].value+'".');return ast;}
 function evaluate(n,vars,depth){if(depth>40)throw new Error('Expression is nested too deeply.');var a,b,args,i;
- if(n.type==='number'||n.type==='color')return n.value;if(n.type==='variable')return n.name==='pi'?Math.PI:vars[n.name];
+ if(n.type==='number'||n.type==='color'||n.type==='boolean')return n.value;if(n.type==='variable')return n.name==='pi'?Math.PI:vars[n.name];
  if(n.type==='unary'){a=evaluate(n.right,vars,depth+1);if(typeof a!=='number')throw new TypeError('A colour cannot be used in arithmetic.');return n.op==='-'?-a:a;}
  if(n.type==='binary'){a=evaluate(n.left,vars,depth+1);b=evaluate(n.right,vars,depth+1);if(typeof a!=='number'||typeof b!=='number')throw new TypeError('Arithmetic needs numbers.');
   if(n.op==='+')return a+b;if(n.op==='-')return a-b;if(n.op==='*')return a*b;if(n.op==='/'){if(b===0)throw new Error('Division by zero.');return a/b;}if(n.op==='%'){if(b===0)throw new Error('Division by zero.');return a%b;}return Math.pow(a,b);}
  if(n.type==='call'){args=[];for(i=0;i<n.args.length;i++)args.push(evaluate(n.args[i],vars,depth+1));return FUNCS[n.name].apply(null,args);}throw new Error('Unknown expression node.');}
-function validValue(id,v,line){var d=E.getPropertyDef(id);if(!d)fail(line,'Unknown property "'+id+'".');if(d.type==='number'&&(typeof v!=='number'||!isFinite(v)))fail(line,'Property '+id+' needs a finite number.');if(d.type==='color'&&(typeof v!=='string'||!/^#[0-9a-f]{6}$/i.test(v)))fail(line,'Property '+id+' needs a hex colour or rgb() value.');return E.normalizeProperty(id,v);}
+function validValue(id,v,line){var d=E.getPropertyDef(id);if(!d)fail(line,'Unknown property "'+id+'".');if(d.type==='number'&&(typeof v!=='number'||!isFinite(v)))fail(line,'Property '+id+' needs a finite number.');if(d.type==='color'&&(typeof v!=='string'||!/^#[0-9a-f]{6}$/i.test(v)))fail(line,'Property '+id+' needs a hex colour or rgb() value.');if(d.type==='boolean'&&typeof v!=='boolean')fail(line,'Property '+id+' needs true or false.');return E.normalizeProperty(id,v);}
 function parseProgram(clip,source){if(typeof source!=='string')throw new TypeError('Script must be text.');if(source.length>4096)throw new SyntaxError('Script is limited to 4,096 characters.');
  var available=E.listProperties(clip).map(function(p){return p.id;}),lines=source.split(/\r?\n/),continuous=[],events=[],cids=Object.create(null),eids=Object.create(null),order=0;
  for(var i=0;i<lines.length;i++){var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
@@ -62,6 +62,7 @@ function parseProgram(clip,source){if(typeof source!=='string')throw new TypeErr
   for(var ai=0;ai<available.length;ai++)if(String(available[ai]).toLowerCase()===requested.toLowerCase()){canonical=available[ai];break;}
   if(!canonical||!ALLOWED[canonical])fail(i+1,'Property "'+requested+'" is not scriptable on this clip.');
   id=canonical;
+  if(mode==='tween'){var propertyDef=E.getPropertyDef(id);if(propertyDef&&propertyDef.type==='boolean')fail(i+1,'Boolean properties can only use set, not tween.');}
   if(mode==='continuous'){if(eids[id])fail(i+1,'Do not mix continuous and timed cues for '+id+'.');cids[id]=1;continuous.push({id:id,expression:ast,line:i+1});}
   else{if(cids[id])fail(i+1,'Do not mix continuous and timed cues for '+id+'.');eids[id]=1;events.push({id:id,expression:ast,line:i+1,at:atTime,mode:mode,duration:dur,ease:ease,order:order++});}
   if(continuous.length+events.length>32)fail(i+1,'A script can contain at most 32 statements.');}
