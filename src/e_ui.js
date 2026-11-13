@@ -138,12 +138,12 @@ stage.addEventListener('pointermove', function (e) {
     if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
     var nx = t0.x + dx / w, ny = t0.y + dy / hh;
     if (Math.abs(nx) < 0.012) { nx = 0; gx = true; } if (Math.abs(ny) < 0.012) { ny = 0; gy = true; }
-    E.setTf(c, 'x', nx, lt); E.setTf(c, 'y', ny, lt);
+    E.setProperty(c, 'transform.x', nx, { time: lt }); E.setProperty(c, 'transform.y', ny, { time: lt });
   } else if (drag.mode === 's') {
-    E.setTf(c, 's', clamp(t0.s * Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y) / drag.r0, 0.03, 10), lt);
+    E.setProperty(c, 'transform.scale', clamp(t0.s * Math.hypot(p.x - drag.cen.x, p.y - drag.cen.y) / drag.r0, 0.03, 10), { time: lt });
   } else {
     var a = Math.atan2(p.y - drag.cen.y, p.x - drag.cen.x), deg = t0.r + (a - drag.a0) * 180 / Math.PI;
-    deg = ((deg + 180) % 360 + 360) % 360 - 180; var q = Math.round(deg / 45) * 45; if (Math.abs(deg - q) < 4) deg = q; E.setTf(c, 'r', deg, lt);
+    deg = ((deg + 180) % 360 + 360) % 360 - 180; var q = Math.round(deg / 45) * 45; if (Math.abs(deg - q) < 4) deg = q; E.setProperty(c, 'transform.rotation', deg, { time: lt });
   }
   drag.moved = true; guides(gx, gy); U.live();
 });

@@ -16,10 +16,10 @@ function rng(o) {
   var sc = o.sc || 1, st = o.step * sc, dec = o.dec != null ? o.dec : (st >= 1 ? 0 : st >= 0.1 ? 1 : 2), id = 'ip' + (++uid), lo = round(o.min * sc, 4), hi = round(o.max * sc, 4);
   var inp = h('input', { type: 'range', id: id, min: lo, max: hi, step: round(st, 4) }), num = h('input', { type: 'number', class: 'num', min: lo, max: hi, step: round(st, 4), 'aria-label': o.l });
   function show() {
-    var c = E.selClip(); if (!c) return; var v = o.kf ? E.tfAt(c, E.localT(c))[o.kf] : gp(c, o.p); if (v == null) return; var x = v * sc;
+    var c = E.selClip(); if (!c) return; var v = o.property ? E.getProperty(c, o.property, E.localT(c)) : (o.kf ? E.tfAt(c, E.localT(c))[o.kf] : gp(c, o.p)); if (v == null) return; var x = v * sc;
     if (document.activeElement !== inp) inp.value = x; if (document.activeElement !== num) num.value = round(x, dec).toFixed(dec);
   }
-  function write(x, final) { var c = E.selClip(); if (!c) return; var v = clamp(x, lo, hi) / sc; if (o.kf) E.setTf(c, o.kf, v, E.localT(c)); else sp(c, o.p, v); after(o, final); }
+  function write(x, final) { var c = E.selClip(); if (!c) return; var v = clamp(x, lo, hi) / sc; if (o.property) E.setProperty(c, o.property, v, { time: E.localT(c) }); else if (o.kf) E.setTf(c, o.kf, v, E.localT(c)); else sp(c, o.p, v); after(o, final); }
   inp.addEventListener('input', function () { write(+inp.value, false); num.value = round(+inp.value, dec).toFixed(dec); });
   inp.addEventListener('change', function () { write(+inp.value, true); E.commit(); });
   num.addEventListener('change', function () { var v = parseFloat(num.value); if (isNaN(v)) { show(); return; } write(clamp(v, lo, hi), true); E.commit(); show(); });
@@ -77,16 +77,16 @@ var SWATCH = K.PAPER_COLORS;
 /* ---------- tabs ---------- */
 function tabBasic(c, b) {
   b.appendChild(sec('Position and size'));
-  b.appendChild(rng({ l: 'Scale', p: 'tf.s', kf: 's', min: 0.05, max: 4, step: 0.01, sc: 100, dec: 0 }));
-  b.appendChild(rng({ l: 'Position X', p: 'tf.x', kf: 'x', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
-  b.appendChild(rng({ l: 'Position Y', p: 'tf.y', kf: 'y', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
-  b.appendChild(rng({ l: 'Rotate', p: 'tf.r', kf: 'r', min: -180, max: 180, step: 1, dec: 0 }));
+  b.appendChild(rng({ l: 'Scale', p: 'tf.s', kf: 's', property: 'transform.scale', min: 0.05, max: 4, step: 0.01, sc: 100, dec: 0 }));
+  b.appendChild(rng({ l: 'Position X', p: 'tf.x', kf: 'x', property: 'transform.x', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
+  b.appendChild(rng({ l: 'Position Y', p: 'tf.y', kf: 'y', property: 'transform.y', min: -1, max: 1, step: 0.005, sc: 100, dec: 1 }));
+  b.appendChild(rng({ l: 'Rotate', p: 'tf.r', kf: 'r', property: 'transform.rotation', min: -180, max: 180, step: 1, dec: 0 }));
   if (c.kind !== 'text') b.appendChild(seg({ l: 'Fit', p: 'tf.fit', opts: [['fit', 'Fit'], ['fill', 'Fill']] }));
   var fx = sb('Flip horizontal', function () { var q = E.selClip(); if (q) { q.tf.fx = !q.tf.fx; U.live(); E.commit(); sync(); } }), fy = sb('Flip vertical', function () { var q = E.selClip(); if (q) { q.tf.fy = !q.tf.fy; U.live(); E.commit(); sync(); } });
   b.appendChild(h('div', { class: 'btn-row' }, [fx, fy, sb('Reset', function () { var q = E.selClip(); if (!q) return; var f = q.tf.fit; q.tf = E.defTf(); q.tf.fit = f; q.kf = E.defKf(); U.live(); E.commit(); E.emit('project'); sync(); })]));
   bound.push(function () { var q = E.selClip(); if (q) { fx.setAttribute('aria-pressed', String(!!q.tf.fx)); fy.setAttribute('aria-pressed', String(!!q.tf.fy)); } });
   b.appendChild(sec('Blend'));
-  b.appendChild(rng({ l: 'Opacity', p: 'tf.o', kf: 'o', min: 0, max: 1, step: 0.01, sc: 100, dec: 0 }));
+  b.appendChild(rng({ l: 'Opacity', p: 'tf.o', kf: 'o', property: 'transform.opacity', min: 0, max: 1, step: 0.01, sc: 100, dec: 0 }));
   b.appendChild(hint('The diamond animates a setting: move the playhead, change the value, and it keyframes itself.'));
   b.appendChild(sec('Timing'));
   b.appendChild(durCtl());
