@@ -1,7 +1,7 @@
 (function () {
 'use strict';
 /* SnipScript v2: bounded expressions plus deterministic clip-local cues. */
-var K=window.__snip,E=K.E,CACHE=new WeakMap();
+var K=window.__snip,E=K.E,CACHE=new WeakMap(),PROJECT_CACHE=new WeakMap();
 var ALLOWED={'transform.x':1,'transform.y':1,'transform.scale':1,'transform.rotation':1,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':1,'audio.fadeOut':1,'text.fontSize':1,'text.color':1,'paper.enabled':1,'paper.edge':1,'paper.roughness':1,'paper.detail':1,'paper.grain':1,'paper.color':1,'paper.boil':1,'paper.boilFps':1,'paper.boilLoop':1,'paper.shadow':1,'paper.shadowBlur':1};
 var PREC={'+':1,'-':1,'*':2,'/':2,'%':2,'^':3};
 function finiteArgs(args,name){for(var i=0;i<args.length;i++)if(typeof args[i]!=='number'||!isFinite(args[i]))throw new TypeError(name+'() needs finite numbers.');}
@@ -63,13 +63,13 @@ function evaluate(n,vars,depth){if(depth>40)throw new Error('Expression is neste
   if(n.op==='+')return a+b;if(n.op==='-')return a-b;if(n.op==='*')return a*b;if(n.op==='/'){if(b===0)throw new Error('Division by zero.');return a/b;}if(n.op==='%'){if(b===0)throw new Error('Division by zero.');return a%b;}return Math.pow(a,b);}
  if(n.type==='call'){args=[];for(i=0;i<n.args.length;i++)args.push(evaluate(n.args[i],vars,depth+1));if(n.name!=='rgb')finiteArgs(args,n.name);return FUNCS[n.name].apply(null,args);}throw new Error('Unknown expression node.');}
 function validValue(id,v,line){var d=E.getPropertyDef(id);if(!d)fail(line,'Unknown property "'+id+'".');if(d.type==='number'&&(typeof v!=='number'||!isFinite(v)))fail(line,'Property '+id+' needs a finite number.');if(d.type==='color'&&(typeof v!=='string'||!/^#[0-9a-f]{6}$/i.test(v)))fail(line,'Property '+id+' needs a hex colour or rgb() value.');if(d.type==='boolean'&&typeof v!=='boolean')fail(line,'Property '+id+' needs true or false.');return E.normalizeProperty(id,v);}
-function parseProgram(clip,source){if(typeof source!=='string')throw new TypeError('Script must be text.');if(source.length>4096)throw new SyntaxError('Script is limited to 4,096 characters.');
- var available=E.listProperties(clip).map(function(p){return p.id;}),lines=source.split(/\r?\n/),continuous=[],events=[],cids=Object.create(null),eids=Object.create(null),order=0;
+function parseProgram(clip,source,options){if(typeof source!=='string')throw new TypeError('Script must be text.');if(source.length>4096)throw new SyntaxError('Script is limited to 4,096 characters.');
+ var maxTime=options&&options.maxTime!=null?Math.max(0,Number(options.maxTime)||0):Math.max(0,clip.dur||0),available=E.listProperties(clip).map(function(p){return p.id;}),lines=source.split(/\r?\n/),continuous=[],events=[],cids=Object.create(null),eids=Object.create(null),order=0;
  for(var i=0;i<lines.length;i++){var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
   var cue=line.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+(set|tween)\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i),id,ast,mode,rhs,atTime,dur=0,ease='smooth',over;
-  if(cue){atTime=Number(cue[1]);mode=cue[2].toLowerCase();id=cue[3].toLowerCase();rhs=cue[4];if(!isFinite(atTime)||atTime<0||atTime>Math.max(0,clip.dur||0)+1e-6)fail(i+1,'Cue time must be between 0 and this clip’s duration.');
+  if(cue){atTime=Number(cue[1]);mode=cue[2].toLowerCase();id=cue[3].toLowerCase();rhs=cue[4];if(!isFinite(atTime)||atTime<0||atTime>maxTime+1e-6)fail(i+1,'Cue time must be between 0 and this clip’s duration.');
    if(mode==='tween'){over=rhs.match(/^(.+?)\s+over\s+(\d+(?:\.\d*)?|\.\d+)\s*s(?:\s+ease\s+(.+))?$/i);if(!over)fail(i+1,'Use: at 0.5s tween transform.scale = 1 over 0.4s ease out.');
-    rhs=over[1];dur=Number(over[2]);ease=parseTweenEase(over[3]||'smooth',i+1);if(!isFinite(dur)||dur<=0||atTime+dur>Math.max(0,clip.dur||0)+1e-6)fail(i+1,'Tween duration must be positive and end within the clip.');}
+    rhs=over[1];dur=Number(over[2]);ease=parseTweenEase(over[3]||'smooth',i+1);if(!isFinite(dur)||dur<=0||atTime+dur>maxTime+1e-6)fail(i+1,'Tween duration must be positive and end within the clip.');}
    ast=parseExpr(rhs,i+1);
   }else{var set=line.match(/^set\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i);if(!set)fail(i+1,'Use: set transform.x = expression, or at 0.5s tween transform.scale = 1 over 0.4s ease out.');
    id=set[1].toLowerCase();ast=parseExpr(set[2],i+1);mode='continuous';}
@@ -148,6 +148,85 @@ E.runClipScriptFrame=function(clip,time){if(!clip||clip.scriptEnabled!==true||!S
  }catch(err){var cached=CACHE.get(clip);if(!cached||cached.source!==clip.scriptCode)cached={source:clip.scriptCode||'',program:null,error:''};cached.error=err&&err.message?err.message:String(err);CACHE.set(clip,cached);return null;}};
 E.runClipScript=function(clip,time){var f=E.runClipScriptFrame(clip,time);return f?f.transform:null;};
 E.getClipScriptError=function(clip){var c=clip&&CACHE.get(clip);return c&&c.source===(clip.scriptCode||'')?c.error:'';};
+
+/* Project-level SnipScript: absolute project time, explicit clip targets, shared safe expressions. */
+function parseProjectProgram(source){
+ if(typeof source!=='string')throw new TypeError('Project script must be text.');
+ if(source.length>8192)throw new SyntaxError('Project scripts are limited to 8,192 characters.');
+ var project=E.proj,duration=Math.max(0,E.end()),lines=source.split(/\r?\n/),groups=Object.create(null),total=0,order=0;
+ for(var i=0;i<lines.length;i++){
+  var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
+  var timed=line.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+clip\s+([a-z0-9_-]+)\s+(.+)$/i),plain=line.match(/^clip\s+([a-z0-9_-]+)\s+(.+)$/i),id=timed?timed[2]:plain?plain[1]:null,directive=timed?('at '+timed[1]+'s '+timed[3]):plain?plain[2]:null;
+  if(!id)fail(i+1,'Use: clip <clip-id> set property = expression, or at 0s clip <clip-id> tween property = value over 1s ease out.');
+  var clip=E.clipById(id);if(!clip)fail(i+1,'Unknown clip target "'+id+'".');
+  var parsed;
+  try{parsed=parseProgram(clip,directive,{maxTime:duration});}
+  catch(err){var msg=err&&err.message?err.message:String(err);var lm=msg.match(/^Line \d+:\s*(.*)$/);fail(i+1,lm?lm[1]:msg);}
+  var group=groups[id]||(groups[id]={clip:clip,continuous:[],events:[],continuousIds:Object.create(null),eventIds:Object.create(null),properties:[]});
+  parsed.continuous.forEach(function(st){
+   if(group.continuousIds[st.id]||group.eventIds[st.id])fail(i+1,'Do not repeat or mix continuous and timed cues for '+st.id+' on this clip.');
+   st.line=i+1;group.continuousIds[st.id]=1;group.continuous.push(st);group.properties.push(st.id);
+  });
+  parsed.events.forEach(function(q){
+   if(group.continuousIds[q.id])fail(i+1,'Do not mix continuous and timed cues for '+q.id+' on this clip.');
+   q.line=i+1;q.order=order++;group.eventIds[q.id]=1;group.events.push(q);
+   if(group.properties.indexOf(q.id)<0)group.properties.push(q.id);
+  });
+  total+=parsed.statements;if(total>128)fail(i+1,'A project script can contain at most 128 statements.');
+ }
+ Object.keys(groups).forEach(function(id){groups[id].events.sort(function(a,b){return a.at-b.at||a.order-b.order;});});
+ return {groups:groups,statements:total,targets:Object.keys(groups),duration:duration};
+}
+function projectKey(project,source){
+ return source+'\u001f'+E.end()+'\u001f'+project.clips.map(function(c){return [c.id,c.kind,c.start,c.dur].join(':');}).join('|');
+}
+function projectProgramFor(){
+ var project=E.proj,source=String(project.projectScriptCode||''),key=projectKey(project,source),old=PROJECT_CACHE.get(project);
+ if(old&&old.key===key&&old.program)return old.program;
+ try{var program=parseProjectProgram(source);PROJECT_CACHE.set(project,{key:key,source:source,program:program,error:''});return program;}
+ catch(err){PROJECT_CACHE.set(project,{key:key,source:source,program:null,error:err&&err.message?err.message:String(err)});throw err;}
+}
+function projectCueValue(clip,events,id,time,duration){
+ var started=false,current,active=null;
+ for(var i=0;i<events.length;i++){
+  var q=events[i];if(q.id!==id||q.at>time)continue;
+  if(!started){var localAt=Math.max(0,Math.min(Math.max(0,Number(clip.dur)||0),q.at-(Number(clip.start)||0)));current=E.getProperty(clip,id,localAt);started=true;}
+  if(active)current=sampleTween(active,q.at);active=null;
+  var target=evalTarget(q,q.at,duration);
+  if(q.mode==='set')current=target;else active={from:current,to:target,at:q.at,duration:q.duration,ease:q.ease};
+ }
+ if(!started)return undefined;return active?sampleTween(active,time):current;
+}
+E.compileProjectScript=function(source){
+ var p=parseProjectProgram(String(source==null?'':source));
+ return {statements:p.statements,targets:p.targets.slice(),properties:p.targets.map(function(id){return {clipId:id,properties:p.groups[id].properties.slice()};})};
+};
+E.getProjectScriptTargets=function(clip){
+ if(!E.proj||E.proj.projectScriptEnabled!==true||!clip)return [];
+ try{var p=projectProgramFor(),g=p.groups[clip.id];return g?g.properties.slice():[];}catch(e){return [];}
+};
+E.hasProjectScriptTarget=function(clip,id){return E.getProjectScriptTargets(clip).indexOf(id)>=0;};
+E.runProjectScriptFrame=function(clip,projectTime){
+ if(!E.proj||E.proj.projectScriptEnabled!==true||!String(E.proj.projectScriptCode||'').trim()||!clip)return null;
+ try{
+  var p=projectProgramFor(),g=p.groups[clip.id];if(!g)return null;
+  var duration=Math.max(0,E.end()),t=Math.max(0,Math.min(duration,Number(projectTime)||0)),local=Math.max(0,Math.min(Math.max(0,Number(clip.dur)||0),t-(Number(clip.start)||0))),vars=varsAt(t,duration),overrides=Object.create(null);
+  for(var i=0;i<g.continuous.length;i++){var st=g.continuous[i];overrides[st.id]=validValue(st.id,evaluate(st.expression,vars,0),st.line);}
+  var processed=Object.create(null);
+  for(var j=0;j<g.events.length;j++){var id=g.events[j].id;if(processed[id]||Object.prototype.hasOwnProperty.call(overrides,id))continue;processed[id]=1;var v=projectCueValue(clip,g.events,id,t,duration);if(v!==undefined)overrides[id]=v;}
+  if(!Object.keys(overrides).length)return null;
+  var frame=E.evaluateProperties(clip,local,overrides);frame.scriptedValues=overrides;return frame;
+ }catch(err){
+  var project=E.proj,source=String(project.projectScriptCode||''),key=projectKey(project,source),old=PROJECT_CACHE.get(project);
+  PROJECT_CACHE.set(project,{key:key,source:source,program:old&&old.key===key?old.program:null,error:err&&err.message?err.message:String(err)});
+  return null;
+ }
+};
+E.getProjectScriptError=function(){
+ if(!E.proj)return '';var source=String(E.proj.projectScriptCode||''),old=PROJECT_CACHE.get(E.proj),key=projectKey(E.proj,source);
+ return old&&old.key===key?old.error:'';
+};
+
 
 /* Timeline cue API. Cues are keyed by source line so marker drags edit the script itself. */
 E.listClipScriptCues=function(clip){

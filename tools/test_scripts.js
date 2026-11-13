@@ -130,4 +130,35 @@ assert.strictEqual(E.getScriptPreset(videoPreset.id).code,'set transform.x = 0.2
 assert.strictEqual(E.deleteScriptPreset(textPreset.id),true);
 assert.strictEqual(E.deleteScriptPreset(textPreset.id),false);
 assert.strictEqual(E.listScriptPresets().length,1);
-console.log('SnipScript v2, project library, easing and custom Bezier tests passed.');
+
+
+/* Project SnipScript uses the project clock and can coordinate separate clips. */
+const projectVideo=Object.assign({},clip,{id:'project-video',kind:'video',start:0,dur:4,values:Object.assign({},base)});
+const projectText=Object.assign({},tx,{id:'project-text',kind:'text',start:2,dur:3,values:Object.assign({},base)});
+E.proj={clips:[projectVideo,projectText],projectScriptCode:[
+ 'at 0s clip project-video set transform.scale = 0.5',
+ 'at 1s clip project-video tween transform.scale = 1 over 1s ease linear',
+ 'clip project-text set transform.y = sin(time) * 0.1',
+ 'at 2s clip project-text tween text.fontSize = 200 over 1s ease linear'
+].join('\n'),projectScriptEnabled:true};
+E.end=()=>5;
+E.clipById=id=>E.proj.clips.find(c=>c.id===id)||null;
+const projectCheck=E.compileProjectScript(E.proj.projectScriptCode);
+assert.strictEqual(projectCheck.statements,4);
+assert.deepStrictEqual(Array.from(projectCheck.targets).sort(),['project-text','project-video']);
+let projectFrame=E.runProjectScriptFrame(projectVideo,1.5);
+assert(Math.abs(projectFrame.transform.scale-0.75)<1e-9);
+projectFrame=E.runProjectScriptFrame(projectText,2.5);
+assert(Math.abs(projectFrame.transform.y-Math.sin(2.5)*0.1)<1e-9);
+assert.strictEqual(projectFrame.text.fontSize,150);
+assert.strictEqual(E.hasProjectScriptTarget(projectText,'text.fontSize'),true);
+assert.strictEqual(E.hasProjectScriptTarget(projectVideo,'text.fontSize'),false);
+assert.throws(()=>E.compileProjectScript('clip missing set transform.x = 1'),/Unknown clip target/);
+assert.throws(()=>E.compileProjectScript('clip project-video set text.fontSize = 100'),/not scriptable/);
+assert.throws(()=>E.compileProjectScript('clip project-video set transform.x = time\nat 1s clip project-video set transform.x = 1'),/Do not repeat or mix/);
+E.proj.projectScriptEnabled=false;
+assert.strictEqual(E.runProjectScriptFrame(projectVideo,1.5),null);
+E.proj.projectScriptEnabled=true;
+assert(E.getProjectScriptTargets(projectText).includes('transform.y'));
+
+console.log('SnipScript v2, project script orchestration, project library, easing and custom Bezier tests passed.');

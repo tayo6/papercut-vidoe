@@ -62,3 +62,15 @@ Supported targets depend on clip type:
 Papercut targets: `paper.enabled`, `paper.edge`, `paper.roughness`, `paper.detail`, `paper.grain`, `paper.color`, `paper.boil`, `paper.boilFps`, `paper.boilLoop`, `paper.shadow`, and `paper.shadowBlur`. Cut style and texture choices remain project/clip settings.
 
 Scripts evaluate without modifying original keyframe tracks or base clip properties. Preview and export use the same visual renderer; audio script curves are sampled into live and offline audio gain envelopes.
+
+
+## Project-level SnipScript
+
+Open the Project tab with no clip selected to edit one script for the whole timeline. Project scripts use absolute project time and can target multiple clips by their IDs. Use the clip picker to insert a target, then check and apply the script:
+
+    at 0s clip c1 set transform.scale = 0.7
+    at 0.25s clip c1 tween transform.scale = 1 over 0.6s ease out
+    clip c2 set transform.y = sin(time * 2) * 0.04
+    at 1s clip c3 tween paper.edge = 40 over 0.5s ease inout
+
+`at` times refer to the project timeline, not the target clip's local time. Project expressions use `time`, `duration` and `progress` for the whole project. Project scripts can coordinate visual, papercut, text and audio properties across clips. When both project and clip scripts write the same property, the project script takes precedence. Project scripts run in preview and video export; audio properties are sampled into the live and offline audio mix.
