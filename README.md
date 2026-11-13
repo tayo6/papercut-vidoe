@@ -20,6 +20,42 @@ Sources are in `src/`. Rebuild the single-file page with:
 MP4 and WebM muxing by [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) and [webm-muxer](https://github.com/Vanilagy/webm-muxer) (MIT), bundled in `src/v_*.js`.
 
 
+
+## Unified project script (version 3)
+
+The Project tab now has one unified project-script editor. A version 3 document can declare named tracks, scenes, clips and all three SnipScript animation scopes in one JSON source. The root script is the project-wide clock, a scene's script uses that scene's clock, and a clip's script uses that clip's local clock. Each script is still the same restricted SnipScript language described below; the document does not execute JavaScript.
+
+Example:
+
+    {
+      "version": 3,
+      "tracks": [
+        { "name": "Visuals", "kind": "video" }
+      ],
+      "script": "clip hero set transform.opacity = 1",
+      "scenes": [
+        {
+          "alias": "intro",
+          "name": "Intro",
+          "start": 0,
+          "duration": 4,
+          "script": "clip hero set transform.y = sin(time * 2) * 0.03",
+          "clips": [
+            {
+              "alias": "hero",
+              "media": "IMPORTED_MEDIA_ID",
+              "track": "Visuals",
+              "start": 0,
+              "duration": 4,
+              "script": "at 0s set transform.scale = 0.8\nat 0.4s tween transform.scale = 1 over 0.6s ease out"
+            }
+          ]
+        }
+      ]
+    }
+
+Use a text clip with type "text" and a content field instead of media when needed. Media must be imported into the editor first and referenced by its Media ID. Validate entire project checks the structure, media, clip scripts, scene scripts and project script without changing the timeline. Apply project script applies the structure and all scripts as one undoable change. The older version 1/2 plan documents and separate clip/scene/project script editors remain supported.
+
 ## SnipScript v2
 
 Select an image, video, text or audio clip, then open Edit → Script. SnipScript is a restricted expression language, not JavaScript. It cannot access the DOM, network, storage, imports or arbitrary browser APIs.

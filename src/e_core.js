@@ -516,9 +516,16 @@ function prepareProjectPlan(input) {
   catch (err2) { planFail('Invalid JSON: ' + (err2.message || String(err2))); }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) planFail('The root must be a JSON object.');
   if (!E.proj) planFail('Open a project first.');
-  var planVersion = raw.version, sceneDefs = [], sceneMap = Object.create(null);
-  if (planVersion === 2) {
-    planKeys(raw, ['version', 'tracks', 'scenes'], 'plan');
+  var planVersion = raw.version, isUnified = planVersion === 3, hasProjectScript = false, projectScriptCode = '', sceneDefs = [], sceneMap = Object.create(null);
+  if (isUnified) {
+    planKeys(raw, ['version', 'tracks', 'scenes', 'script'], 'plan');
+    if (Object.prototype.hasOwnProperty.call(raw, 'script')) {
+      if (typeof raw.script !== 'string' || raw.script.length > 8192) planFail('The project script must be text with no more than 8,192 characters.');
+      hasProjectScript = true; projectScriptCode = raw.script;
+    }
+  }
+  if (planVersion === 2 || isUnified) {
+    if (!isUnified) planKeys(raw, ['version', 'tracks', 'scenes'], 'plan');
     if (!Array.isArray(raw.scenes) || !raw.scenes.length || raw.scenes.length > 50) planFail('version 2 plans need between 1 and 50 scenes.');
     var sceneAliases = Object.create(null), existingScenes = Object.create(null), flattened = [], clipTotal = 0;
     (E.proj.scenes || []).forEach(function (scene) {
@@ -530,7 +537,8 @@ function prepareProjectPlan(input) {
     raw.scenes.forEach(function (scene, index) {
       var label = 'Scene ' + (index + 1);
       if (!scene || typeof scene !== 'object' || Array.isArray(scene)) planFail(label + ' must be an object.');
-      planKeys(scene, ['alias', 'name', 'start', 'duration', 'clips'], 'scene');
+      planKeys(scene, isUnified ? ['alias', 'name', 'start', 'duration', 'clips', 'script'] : ['alias', 'name', 'start', 'duration', 'clips'], 'scene');
+      if (isUnified && Object.prototype.hasOwnProperty.call(scene, 'script') && (typeof scene.script !== 'string' || scene.script.length > 8192)) planFail(label + ' script must be text with no more than 8,192 characters.');
       var alias = planString(scene.alias, label + ' alias', 40, true);
       if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias) || /^c[0-9]+$/i.test(alias)) planFail(label + ' alias must be a descriptive name beginning with a letter.');
       var key = alias.toLowerCase();
@@ -545,6 +553,7 @@ function prepareProjectPlan(input) {
       if (clipTotal > 100) planFail('A scene plan can contain no more than 100 clips.');
       var current = existingScenes[key] || null;
       var def = { alias: alias, key: key, name: name, start: start, duration: duration, existingId: current ? current.id : null, action: current ? 'update' : 'create' };
+      if (isUnified && Object.prototype.hasOwnProperty.call(scene, 'script')) { def.hasScript = true; def.scriptCode = scene.script; }
       sceneDefs.push(def); sceneMap[key] = def;
       scene.clips.forEach(function (clip) {
         if (!clip || typeof clip !== 'object' || Array.isArray(clip)) planFail(label + ' contains an invalid clip.');
@@ -620,7 +629,8 @@ function prepareProjectPlan(input) {
   clipInput.forEach(function (item, index) {
     var label = 'Clip ' + (index + 1);
     if (!item || typeof item !== 'object' || Array.isArray(item)) planFail(label + ' must be an object.');
-    planKeys(item, ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties', 'sceneAlias', 'sceneOffset'], 'clip');
+    planKeys(item, isUnified ? ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties', 'sceneAlias', 'sceneOffset', 'script'] : ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties', 'sceneAlias', 'sceneOffset'], 'clip');
+    if (isUnified && Object.prototype.hasOwnProperty.call(item, 'script') && (typeof item.script !== 'string' || item.script.length > 8192)) planFail(label + ' script must be text with no more than 8,192 characters.');
     var alias = planString(item.alias, label + ' alias', 40, true);
     if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias)) planFail(label + ' alias must start with a letter and contain only letters, numbers, "_" or "-".');
     if (/^c[0-9]+$/i.test(alias)) planFail(label + ' alias cannot look like an automatically generated clip ID. Use a descriptive name instead.');
@@ -702,7 +712,8 @@ function prepareProjectPlan(input) {
       alias: alias, aliasKey: aliasKey, kind: kind, mediaId: mediaRef, mediaName: media ? media.name : '',
       content: textContent, name: name, rowId: rowId, rowKey: rowKey, trackName: rowLabel,
       start: start, duration: duration, properties: properties, existingId: existing ? existing.id : null,
-      sceneAlias: sceneAlias, sceneOffset: sceneOffset, action: existing ? 'update' : 'create'
+      sceneAlias: sceneAlias, sceneOffset: sceneOffset, action: existing ? 'update' : 'create',
+      hasScript: isUnified && Object.prototype.hasOwnProperty.call(item, 'script'), scriptCode: isUnified && Object.prototype.hasOwnProperty.call(item, 'script') ? item.script : ''
     };
     if (sceneAlias) {
       var sceneDef = sceneMap[sceneAlias.toLowerCase()];
@@ -728,7 +739,7 @@ function prepareProjectPlan(input) {
   });
 
   return {
-    source: source, planVersion: planVersion, trackDefs: trackDefs, clips: clipDefs, scenes: sceneDefs,
+    source: source, planVersion: planVersion, hasProjectScript: hasProjectScript, projectScriptCode: projectScriptCode, trackDefs: trackDefs, clips: clipDefs, scenes: sceneDefs,
     summary: {
       version: planVersion,
       scenesToCreate: sceneDefs.filter(function (scene) { return scene.action === 'create'; }).length,
@@ -764,6 +775,7 @@ E.applyProjectPlan = function (plan, sourceText) {
         scene.alias = item.alias; scene.name = item.name; scene.start = item.start; scene.duration = item.duration;
       }
       sceneIds[item.key] = scene.id;
+      if (item.hasScript) { scene.scriptCode = item.scriptCode; scene.scriptEnabled = !!String(item.scriptCode).trim(); }
     });
     prepared.trackDefs.forEach(function (track) {
       var id = track.rowId || trackIds[track.key];
@@ -795,10 +807,32 @@ E.applyProjectPlan = function (plan, sourceText) {
       Object.keys(item.properties).forEach(function (property) {
         E.setProperty(clip, property, item.properties[property], { base: true });
       });
+      if (item.hasScript) { clip.scriptCode = item.scriptCode; clip.scriptEnabled = !!String(item.scriptCode).trim(); }
       /* Keep the current inspector selection; scene plans should leave the Project panel open. */
     });
+    if (prepared.hasProjectScript) {
+      E.proj.projectScriptCode = prepared.projectScriptCode;
+      E.proj.projectScriptEnabled = !!String(prepared.projectScriptCode).trim();
+    }
+    if (prepared.planVersion === 3) {
+      if (prepared.clips.some(function (item) { return item.hasScript; })) {
+        if (!E.compileScript) throw new Error('SnipScript runtime is not loaded.');
+        prepared.clips.forEach(function (item) { if (item.hasScript) { var target = E.proj.clips.find(function (clip) { return String(clip.scriptAlias || '').toLowerCase() === item.aliasKey; }); E.compileScript(target, item.scriptCode); } });
+      }
+      if (prepared.scenes.some(function (item) { return item.hasScript; })) {
+        if (!E.compileSceneScript) throw new Error('Scene SnipScript runtime is not loaded.');
+        prepared.scenes.forEach(function (item) { if (item.hasScript) { var target = E.proj.scenes.find(function (scene) { return String(scene.alias || '').toLowerCase() === item.key; }); E.compileSceneScript(target, item.scriptCode); } });
+      }
+      if (prepared.hasProjectScript) {
+        if (!E.compileProjectScript) throw new Error('Project SnipScript runtime is not loaded.');
+        E.compileProjectScript(prepared.projectScriptCode);
+      }
+    }
     var savedSource = typeof sourceText === 'string' ? sourceText : prepared.source;
-    if (savedSource.length <= 100000) E.proj.projectPlanCode = savedSource;
+    if (savedSource.length <= 100000) {
+      if (prepared.planVersion === 3) E.proj.projectBundleCode = savedSource;
+      else E.proj.projectPlanCode = savedSource;
+    }
     E.sel = selected;
     E.emit('project'); E.emit('sel'); E.dirty(); E.commit();
     var result = E.clone(prepared.summary);

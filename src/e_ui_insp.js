@@ -989,6 +989,47 @@ function tabProject(c, b) {
   bound.push(function () { var t = E.proj.bg.type; pb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === t)); }); if (E.proj.bg.type === 'color' && /^#[0-9a-f]{6}$/i.test(E.proj.bg.color)) bc.value = E.proj.bg.color; }); bound[bound.length - 1]();
   b.appendChild(hint('The background shows behind every clip. Add a photo on the bottom track to use a picture instead.'));
 
+
+  b.appendChild(sec('Unified project script'));
+  b.appendChild(hint('One source document builds scenes and tracks, then attaches clip, scene and project animation. Import media first; use its Media ID in the script. The existing separate editors remain available for older projects.'));
+  var bundleStarter = JSON.stringify({
+    version: 3,
+    tracks: [{ name: 'Main Visuals', kind: 'video' }],
+    script: 'clip opening-title set transform.opacity = 1',
+    scenes: [{
+      alias: 'intro', name: 'Intro', start: 0, duration: 3,
+      script: 'clip opening-title set transform.y = sin(time * 2) * 0.02',
+      clips: [{
+        alias: 'opening-title', type: 'text', content: 'Your title',
+        track: 'Main Visuals', start: 0, duration: 3,
+        properties: { 'paper.enabled': true, 'paper.edge': 22 },
+        script: 'at 0s set transform.scale = 0.7\nat 0.25s tween transform.scale = 1 over 0.6s ease out'
+      }]
+    }]
+  }, null, 2);
+  var bundleCode = h('textarea', { class: 'ti script-code', rows: 16, spellcheck: 'false', 'aria-label': 'Unified project script' });
+  bundleCode.value = E.proj.projectBundleCode || bundleStarter;
+  var bundleStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
+  var checkBundle = sb('Validate entire project', function () {
+    try {
+      var result = E.compileUnifiedProject(bundleCode.value);
+      bundleStatus.textContent = 'Valid: ' + result.scenes.length + ' scenes, ' + result.items.length + ' clips, ' + result.scriptStatements + ' animation statements. No timeline changes made.';
+    } catch (err) { bundleStatus.textContent = err.message || String(err); }
+  });
+  var applyBundle = sb('Apply project script', function () {
+    try {
+      var result = E.applyUnifiedProject(bundleCode.value);
+      bundleStatus.textContent = 'Applied as one undoable change: ' + result.scenes.length + ' scenes, ' + result.items.length + ' clips, ' + result.scriptStatements + ' animation statements.';
+      U.toast('Unified project applied.');
+    } catch (err) { bundleStatus.textContent = err.message || String(err); }
+  });
+  b.appendChild(bundleCode);
+  b.appendChild(h('div', { class: 'script-actions' }, [checkBundle, applyBundle]));
+  b.appendChild(bundleStatus);
+  bound.push(function () {
+    if (document.activeElement !== bundleCode && E.proj.projectBundleCode && bundleCode.value !== E.proj.projectBundleCode) bundleCode.value = E.proj.projectBundleCode;
+  });
+
   b.appendChild(sec('Project-wide animation script'));
   b.appendChild(hint('Coordinate clips across the whole timeline. This script uses absolute project time and has the highest priority: clip scripts run first, then scene scripts, then this project-wide script.'));
   var projectTargets = h('select', { class: 'es', 'aria-label': 'Choose a clip to target' });
