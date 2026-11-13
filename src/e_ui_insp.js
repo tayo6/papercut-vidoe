@@ -991,7 +991,7 @@ function tabProject(c, b) {
 
 
   b.appendChild(sec('Unified project script'));
-  b.appendChild(hint('One source document builds scenes and tracks, then attaches clip, scene and project animation. Import media first; use its Media ID in the script. Importing a script only loads a draft; validate it before applying.'));
+  b.appendChild(hint('One source document builds scenes and tracks, attaches clip, scene and project animation, and can define scene crossfades with transitionIn. Import media first; use its Media ID in the script. Importing a script only loads a draft; validate it before applying.'));
   var bundleStarter = JSON.stringify({
     version: 3,
     tracks: [{ name: 'Main Visuals', kind: 'video' }],

@@ -182,6 +182,7 @@ const scenePlan = {
       name: 'Main Scene',
       start: 4,
       duration: 5,
+      transitionIn: { type: 'crossfade', duration: 1 },
       clips: [
         { alias: 'hero-scene-shot', media: 'hero', track: 'Visuals', start: 0.5, duration: 4 }
       ]
@@ -210,6 +211,8 @@ assert.equal(E.proj.scenes.length, 3);
 const introScene = E.proj.scenes.find(scene => scene.alias === 'intro');
 const mainScene = E.proj.scenes.find(scene => scene.alias === 'main');
 assert(introScene && mainScene);
+assert.equal(mainScene.transitionIn.type, 'crossfade');
+assert.equal(mainScene.transitionIn.duration, 1);
 assert.equal(introScene.name, 'Intro');
 assert.equal(introScene.duration, 4);
 const introTitle = E.proj.clips.find(clip => clip.scriptAlias === 'intro-title');
@@ -278,6 +281,7 @@ const unifiedPlan = {
   script: 'clip unified-title set transform.opacity = 0.85',
   scenes: [{
     alias: 'unified-intro', name: 'Unified Intro', start: 0, duration: 3,
+    transitionIn: { type: 'crossfade', duration: 0.5 },
     script: 'clip unified-title set transform.y = sin(time) * 0.1',
     clips: [{
       alias: 'unified-title', type: 'text', content: 'Unified',
@@ -304,6 +308,8 @@ const unifiedClip = E.proj.clips.find(clip => clip.scriptAlias === 'unified-titl
 const unifiedScene = E.proj.scenes.find(scene => scene.alias === 'unified-intro');
 assert.equal(unifiedClip.scriptEnabled, true);
 assert.equal(unifiedScene.scriptEnabled, true);
+assert.equal(unifiedScene.transitionIn.type, 'crossfade');
+assert.equal(unifiedScene.transitionIn.duration, 0.5);
 assert.equal(unifiedApply.scriptStatements, 4);
 let unifiedFrame = E.runClipScriptFrame(unifiedClip, 0);
 assert.equal(unifiedFrame.transform.scale, 0.5);
@@ -327,4 +333,24 @@ assert.equal(JSON.stringify(E.proj), beforeBadUnified, 'Invalid scripts must not
 assert.throws(() => E.applyUnifiedProject(badUnified), /Unknown clip target/);
 assert.equal(JSON.stringify(E.proj), beforeBadUnified, 'Failed unified apply must leave the project unchanged.');
 
-console.log('Script-driven project plan validation, preview, apply, aliases and undo tests passed.');
+const badTransition = JSON.parse(JSON.stringify(unifiedPlan));
+badTransition.scenes[0].transitionIn = { type: 'slide-left', duration: 0.5 };
+assert.throws(() => E.compileUnifiedProject(badTransition), /supports only the "crossfade" type/);
+const longTransition = JSON.parse(JSON.stringify(unifiedPlan));
+longTransition.scenes[0].transitionIn = { type: 'crossfade', duration: 4 };
+assert.throws(() => E.compileUnifiedProject(longTransition), /must not exceed its scene duration/);
+
+E.proj.scenes = [
+  { id: 'scene-before', alias: 'before', start: 0, duration: 6 },
+  { id: 'scene-after', alias: 'after', start: 4, duration: 4, transitionIn: { type: 'crossfade', duration: 1 } }
+];
+assert.equal(E.sceneTransitionAlpha('before', 3.9), 1);
+assert.equal(E.sceneTransitionAlpha('after', 4), 0);
+assert(Math.abs(E.sceneTransitionAlpha('before', 4.5) - 0.5) < 1e-9);
+assert(Math.abs(E.sceneTransitionAlpha('after', 4.5) - 0.5) < 1e-9);
+assert.equal(E.sceneTransitionAlpha('before', 5), 0);
+assert.equal(E.sceneTransitionAlpha('before', 5.5), 0);
+assert.equal(E.sceneTransitionAlpha('after', 5), 1);
+assert.equal(E.sceneTransitionAlpha('missing', 4.5), 1);
+
+console.log('Project plans, unified scripts, scene transitions and undo tests passed.');

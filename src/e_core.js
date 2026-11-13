@@ -63,6 +63,52 @@ E.clipAt = function (rowId, T) {
   for (var i = 0; i < cs.length; i++) if (cs[i].row === rowId && cs[i].start <= T + 1e-9 && T < cs[i].start + cs[i].dur - 1e-9) return cs[i];
   return null;
 };
+/* Scene-level visual opacity for deterministic, script-authored crossfades. */
+E.sceneTransitionAlpha = function (sceneRef, projectTime) {
+  var scenes = E.proj && Array.isArray(E.proj.scenes) ? E.proj.scenes : [], scene = null, key = '';
+  if (sceneRef && typeof sceneRef === 'object') {
+    for (var i = 0; i < scenes.length; i++) {
+      if (scenes[i] === sceneRef || (sceneRef.id && scenes[i].id === sceneRef.id)) { scene = scenes[i]; break; }
+    }
+  } else {
+    key = String(sceneRef == null ? '' : sceneRef).toLowerCase();
+    for (var j = 0; j < scenes.length; j++) {
+      if (scenes[j].id === sceneRef || String(scenes[j].alias || '').toLowerCase() === key) { scene = scenes[j]; break; }
+    }
+  }
+  if (!scene) return 1;
+  var time = Number(projectTime);
+  if (!isFinite(time)) return 1;
+  var start = Number(scene.start) || 0, end = start + Math.max(0, Number(scene.duration) || 0), alpha = 1;
+  function smooth(progress) {
+    progress = Math.max(0, Math.min(1, progress));
+    return progress * progress * (3 - 2 * progress);
+  }
+  var incoming = scene.transitionIn;
+  if (incoming && incoming.type === 'crossfade') {
+    var incomingDuration = Number(incoming.duration) || 0;
+    if (incomingDuration > 0 && time >= start && time < start + incomingDuration) {
+      alpha *= smooth((time - start) / incomingDuration);
+    }
+  }
+  var next = null;
+  scenes.forEach(function (candidate) {
+    var nextStart = Number(candidate.start) || 0;
+    var transition = candidate.transitionIn;
+    var duration = transition && transition.type === 'crossfade' ? Number(transition.duration) || 0 : 0;
+    if (duration <= 0 || nextStart <= start + 1e-6 || nextStart >= end - 1e-6 || nextStart + duration > end + 1e-6) return;
+    if (!next || nextStart < next.start) next = candidate;
+  });
+  if (next) {
+    var transitionStart = Number(next.start) || 0, transitionDuration = Number(next.transitionIn.duration) || 0;
+    if (time >= transitionStart && time < transitionStart + transitionDuration) {
+      alpha *= 1 - smooth((time - transitionStart) / transitionDuration);
+    } else if (time >= transitionStart + transitionDuration && time < end) {
+      alpha = 0;
+    }
+  }
+  return clamp(alpha, 0, 1);
+};
 
 /* ---------- rows ---------- */
 E.addRow = function (kind, where) {
@@ -501,6 +547,16 @@ function planNumber(value, label, min, max) {
   if (value < min || value > max) planFail(label + ' must be between ' + min + ' and ' + max + '.');
   return value;
 }
+function planTransition(value, label, sceneDuration) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) planFail(label + ' must be an object.');
+  planKeys(value, ['type', 'duration'], label);
+  var type = value.type == null ? 'crossfade' : planString(value.type, label + ' type', 20, true);
+  if (type !== 'crossfade') planFail(label + ' currently supports only the "crossfade" type.');
+  var duration = planNumber(value.duration, label + ' duration', E.MIN, 10);
+  if (duration > sceneDuration) planFail(label + ' duration must not exceed its scene duration.');
+  return { type: type, duration: duration };
+}
 function planKeys(object, allowed, label) {
   Object.keys(object).forEach(function (key) {
     if (allowed.indexOf(key) < 0) planFail('Unknown ' + label + ' field "' + key + '".');
@@ -538,7 +594,9 @@ function prepareProjectPlan(input) {
     raw.scenes.forEach(function (scene, index) {
       var label = 'Scene ' + (index + 1);
       if (!scene || typeof scene !== 'object' || Array.isArray(scene)) planFail(label + ' must be an object.');
-      planKeys(scene, isUnified ? ['alias', 'name', 'start', 'duration', 'clips', 'script'] : ['alias', 'name', 'start', 'duration', 'clips'], 'scene');
+      var sceneKeys = ['alias', 'name', 'start', 'duration', 'clips', 'transitionIn'];
+      if (isUnified) sceneKeys.push('script');
+      planKeys(scene, sceneKeys, 'scene');
       if (isUnified && Object.prototype.hasOwnProperty.call(scene, 'script') && (typeof scene.script !== 'string' || scene.script.length > 8192)) planFail(label + ' script must be text with no more than 8,192 characters.');
       var alias = planString(scene.alias, label + ' alias', 40, true);
       if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias) || /^c[0-9]+$/i.test(alias)) planFail(label + ' alias must be a descriptive name beginning with a letter.');
@@ -549,11 +607,12 @@ function prepareProjectPlan(input) {
       var start = planNumber(scene.start, label + ' start', 0, 86400);
       var duration = planNumber(scene.duration, label + ' duration', E.MIN, 86400);
       if (start + duration > 86400) planFail(label + ' must end by 86400 seconds.');
+      var transitionIn = planTransition(scene.transitionIn, label + ' transitionIn', duration);
       if (!Array.isArray(scene.clips) || !scene.clips.length) planFail(label + ' must contain at least one clip.');
       clipTotal += scene.clips.length;
       if (clipTotal > 100) planFail('A scene plan can contain no more than 100 clips.');
       var current = existingScenes[key] || null;
-      var def = { alias: alias, key: key, name: name, start: start, duration: duration, existingId: current ? current.id : null, action: current ? 'update' : 'create' };
+      var def = { alias: alias, key: key, name: name, start: start, duration: duration, transitionIn: transitionIn, existingId: current ? current.id : null, action: current ? 'update' : 'create' };
       if (isUnified && Object.prototype.hasOwnProperty.call(scene, 'script')) { def.hasScript = true; def.scriptCode = scene.script; }
       sceneDefs.push(def); sceneMap[key] = def;
       scene.clips.forEach(function (clip) {
@@ -745,7 +804,7 @@ function prepareProjectPlan(input) {
       version: planVersion,
       scenesToCreate: sceneDefs.filter(function (scene) { return scene.action === 'create'; }).length,
       scenesToUpdate: sceneDefs.filter(function (scene) { return scene.action === 'update'; }).length,
-      scenes: sceneDefs.map(function (scene) { return { alias: scene.alias, name: scene.name, start: scene.start, duration: scene.duration, action: scene.action }; }),
+      scenes: sceneDefs.map(function (scene) { return { alias: scene.alias, name: scene.name, start: scene.start, duration: scene.duration, transitionIn: scene.transitionIn ? clone(scene.transitionIn) : null, action: scene.action }; }),
       tracksToCreate: trackDefs.filter(function (track) { return track.isNew; }).length,
       tracksToReuse: trackDefs.filter(function (track) { return !track.isNew; }).length,
       clipsToCreate: clipDefs.filter(function (clip) { return clip.action === 'create'; }).length,
@@ -770,10 +829,11 @@ E.applyProjectPlan = function (plan, sourceText) {
     prepared.scenes.forEach(function (item) {
       var scene = E.proj.scenes.find(function (current) { return String(current.alias || '').toLowerCase() === item.key; });
       if (!scene) {
-        scene = { id: E.uid('sc'), alias: item.alias, name: item.name, start: item.start, duration: item.duration, scriptManaged: true };
+        scene = { id: E.uid('sc'), alias: item.alias, name: item.name, start: item.start, duration: item.duration, transitionIn: item.transitionIn ? clone(item.transitionIn) : null, scriptManaged: true };
         E.proj.scenes.push(scene);
       } else {
         scene.alias = item.alias; scene.name = item.name; scene.start = item.start; scene.duration = item.duration;
+        scene.transitionIn = item.transitionIn ? clone(item.transitionIn) : null;
       }
       sceneIds[item.key] = scene.id;
       if (item.hasScript) { scene.scriptCode = item.scriptCode; scene.scriptEnabled = !!String(item.scriptCode).trim(); }
