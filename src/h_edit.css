@@ -380,3 +380,29 @@ body.ed-on .wrap { display: none; }
 .ed .script-bezier-arms { fill: none; stroke: var(--e-muted); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .9; }
 .ed .script-bezier-handle { fill: var(--e-p1); stroke: var(--e-acc); stroke-width: 2.5; cursor: grab; pointer-events: all; }
 .ed .script-bezier-handle:active { cursor: grabbing; fill: var(--e-acc); }
+
+/* Visual keyframe lanes and reusable motion presets */
+.mke { margin: 8px 0 14px; }
+.mke-lanes { display: flex; flex-direction: column; gap: 7px; }
+.mke-lane { display: grid; grid-template-columns: 88px minmax(0,1fr) 27px; align-items: center; gap: 6px; }
+.mke-label { color: var(--e-mut); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mke-track { position: relative; height: 26px; min-width: 0; border: 1px solid var(--e-line); border-radius: 6px; background: repeating-linear-gradient(90deg, var(--e-p2) 0 24px, var(--e-p3) 24px 25px); }
+.mke-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid rgba(255,255,255,.12); }
+.mke-dot { position: absolute; z-index: 1; top: 50%; width: 18px; height: 18px; padding: 0; display: grid; place-items: center; transform: translate(-50%,-50%); border-radius: 50%; background: var(--e-p1); }
+.mke-dot svg { fill: #ffd24a; stroke: #3a2d00; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.mke-dot.active { outline: 2px solid var(--e-acc); outline-offset: 1px; }
+.mke-dot:hover { background: var(--e-p4); }
+.mke-add { width: 27px; height: 27px; border: 1px solid var(--e-line); border-radius: 6px; background: var(--e-p2); color: var(--e-fg); font-size: 18px; line-height: 1; }
+.mke-add:hover { background: var(--e-p3); }
+.mke-detail { margin-top: 10px; padding: 9px; border: 1px solid var(--e-line); border-radius: 8px; background: var(--e-p1); }
+.mke-fields { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.mke-field { min-width: 0; }
+.mke-field label { display: block; margin-bottom: 4px; color: var(--e-mut); font-size: 10px; }
+.mke-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mke-presets { display: grid; gap: 7px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--e-line); }
+.mke-presets strong { font-size: 12px; }
+.mke-status { min-height: 16px; margin-top: 6px; }
+@media (max-width: 420px) {
+  .mke-lane { grid-template-columns: 76px minmax(0,1fr) 26px; gap: 4px; }
+  .mke-fields { grid-template-columns: 1fr 1fr; }
+}

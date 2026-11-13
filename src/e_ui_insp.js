@@ -158,6 +158,154 @@ function animGrid(c, which) {
     g.appendChild(b);
   }); return g;
 }
+
+var MOTION_TRACKS = [
+  { p: 'x', label: 'Position X', min: -1, max: 1, step: 0.005, dec: 3 },
+  { p: 'y', label: 'Position Y', min: -1, max: 1, step: 0.005, dec: 3 },
+  { p: 's', label: 'Scale', min: 0.03, max: 10, step: 0.01, dec: 2 },
+  { p: 'r', label: 'Rotation', min: -3600, max: 3600, step: 1, dec: 1 },
+  { p: 'o', label: 'Opacity', min: 0, max: 1, step: 0.01, dec: 2 }
+];
+function motionEditor(c) {
+  var root = h('div', { class: 'mke' }), lanes = h('div', { class: 'mke-lanes' });
+  var detail = h('div', { class: 'mke-detail', 'aria-label': 'Selected keyframe controls' });
+  var status = h('p', { class: 'hint mke-status', role: 'status', 'aria-live': 'polite' });
+  var selected = null;
+  var presetName = h('input', { class: 'ti', type: 'text', maxlength: 48, placeholder: 'e.g. Gentle drift', 'aria-label': 'Motion preset name' });
+  var presetSelect = h('select', { class: 'ti', 'aria-label': 'Saved project motion presets' });
+  function setStatus(msg) { status.textContent = msg || ''; }
+  function currentKey() {
+    if (!selected || !c.kf || !c.kf[selected.p]) return null;
+    var index = E.kfIndex(c, selected.p, selected.t);
+    return index < 0 ? null : { index: index, key: c.kf[selected.p][index] };
+  }
+  function changed(message) {
+    E.emit('project'); E.dirty(); E.commit(); U.live();
+    if (message) setStatus(message);
+    render();
+  }
+  function renderLanes() {
+    lanes.textContent = '';
+    MOTION_TRACKS.forEach(function (info) {
+      var row = h('div', { class: 'mke-lane' });
+      var label = h('span', { class: 'mke-label', text: info.label });
+      var track = h('div', { class: 'mke-track', role: 'group', 'aria-label': info.label + ' keyframes' });
+      var keys = c.kf && c.kf[info.p] || [];
+      keys.forEach(function (key) {
+        var pct = clamp(key.t / Math.max(0.001, c.dur), 0, 1) * 100;
+        var active = selected && selected.p === info.p && Math.abs(selected.t - key.t) <= E.KF_EPS;
+        var marker = h('button', { class: 'mke-dot' + (active ? ' active' : ''), type: 'button',
+          style: { left: pct + '%' }, title: info.label + ' · ' + key.t.toFixed(2) + 's · ' + key.v,
+          'aria-label': 'Select ' + info.label + ' keyframe at ' + key.t.toFixed(2) + ' seconds',
+          'aria-pressed': String(!!active), html: U.kfIcon(11) });
+        marker.addEventListener('click', function () {
+          selected = { p: info.p, t: key.t }; E.pause(); E.seek(c.start + key.t); render();
+        });
+        track.appendChild(marker);
+      });
+      var add = h('button', { class: 'mke-add', type: 'button', text: '+',
+        title: 'Add ' + info.label + ' keyframe at the playhead',
+        'aria-label': 'Add ' + info.label + ' keyframe at the playhead' });
+      add.addEventListener('click', function () {
+        try {
+          var key = E.addKf(c, info.p, E.localT(c));
+          selected = { p: info.p, t: key.t };
+          E.pause(); E.seek(c.start + key.t);
+          changed('Keyframe added or selected.');
+        } catch (err) { setStatus(err.message || String(err)); }
+      });
+      row.appendChild(label); row.appendChild(track); row.appendChild(add); lanes.appendChild(row);
+    });
+  }
+  function renderDetail() {
+    detail.textContent = '';
+    var found = currentKey();
+    if (!found) {
+      detail.appendChild(hint('Select a diamond above or tap + beside a property to add a keyframe at the playhead.'));
+      return;
+    }
+    var info = MOTION_TRACKS.filter(function (x) { return x.p === selected.p; })[0];
+    var key = found.key, idx = found.index;
+    var time = h('input', { class: 'num', type: 'number', min: 0, max: c.dur, step: 0.01, 'aria-label': 'Keyframe time in seconds' });
+    time.value = key.t.toFixed(2);
+    var value = h('input', { class: 'num', type: 'number', min: info.min, max: info.max, step: info.step, 'aria-label': info.label + ' keyframe value' });
+    value.value = String(round(key.v, info.dec));
+    var ease = h('select', { class: 'es', 'aria-label': 'Easing to next keyframe' }, [
+      h('option', { value: 'ease', text: 'Smooth' }),
+      h('option', { value: 'lin', text: 'Linear' }),
+      h('option', { value: 'hold', text: 'Hold' })
+    ]);
+    ease.value = key.e || 'ease';
+    function save(patch) {
+      try {
+        var result = E.updateKf(c, selected.p, idx, patch);
+        selected.t = result.t;
+        changed('Keyframe updated.');
+      } catch (err) { setStatus(err.message || String(err)); renderDetail(); }
+    }
+    time.addEventListener('change', function () { save({ t: Number(time.value) }); });
+    value.addEventListener('change', function () { save({ v: Number(value.value) }); });
+    ease.addEventListener('change', function () { save({ e: ease.value }); });
+    var jump = sb('Jump to keyframe', function () { var q = currentKey(); if (q) { E.pause(); E.seek(c.start + q.key.t); } });
+    var remove = sb('Delete keyframe', function () {
+      var q = currentKey(); if (!q) return;
+      E.deleteKf(c, selected.p, q.index); selected = null; changed('Keyframe deleted.');
+    });
+    detail.appendChild(h('div', { class: 'mke-fields' }, [
+      h('div', { class: 'mke-field' }, [h('label', { text: 'Time (seconds)' }), time]),
+      h('div', { class: 'mke-field' }, [h('label', { text: info.label + ' value' }), value]),
+      h('div', { class: 'mke-field' }, [h('label', { text: 'Easing to next' }), ease])
+    ]));
+    detail.appendChild(h('div', { class: 'mke-actions' }, [jump, remove]));
+  }
+  function refreshPresets() {
+    var old = presetSelect.value, list = E.listMotionPresets ? E.listMotionPresets() : [];
+    presetSelect.textContent = '';
+    presetSelect.appendChild(h('option', { value: '', text: list.length ? 'Choose a saved motion…' : 'No saved motions yet', disabled: true }));
+    list.forEach(function (p) {
+      presetSelect.appendChild(h('option', { value: p.id, text: p.name + ' (' + p.keyframes + ' keys)' }));
+    });
+    presetSelect.value = list.some(function (p) { return p.id === old; }) ? old : '';
+  }
+  presetSelect.addEventListener('change', function () {
+    var item = E.getMotionPreset(presetSelect.value); if (item) presetName.value = item.name;
+  });
+  var savePreset = sb('Save / update', function () {
+    try {
+      var item = E.saveMotionPreset(presetName.value, c);
+      refreshPresets(); presetSelect.value = item.id;
+      E.dirty(); E.emit('project'); E.commit();
+      setStatus('Saved "' + item.name + '" to this project. It can be applied to another visual clip.');
+    } catch (err) { setStatus(err.message || String(err)); }
+  });
+  var applyPreset = sb('Apply to clip', function () {
+    try {
+      if (!presetSelect.value) throw new Error('Choose a saved motion preset first.');
+      E.applyMotionPreset(presetSelect.value, c);
+      selected = null; changed('Motion preset applied to this clip.');
+    } catch (err) { setStatus(err.message || String(err)); }
+  });
+  var deletePreset = sb('Delete preset', function () {
+    if (!presetSelect.value || !E.deleteMotionPreset(presetSelect.value)) return;
+    refreshPresets(); E.dirty(); E.emit('project'); E.commit();
+    setStatus('Motion preset deleted from this project.');
+  });
+  function render() { renderLanes(); renderDetail(); refreshPresets(); }
+  root.appendChild(lanes);
+  root.appendChild(detail);
+  root.appendChild(hint('Choose a diamond to edit its time, value and easing. The lane markers also remain draggable on the main timeline.'));
+  root.appendChild(h('div', { class: 'mke-presets' }, [
+    h('strong', { text: 'Project motion library' }),
+    hint('Save these keyframe tracks once, then apply them to other image, video or text clips.'),
+    presetName, presetSelect,
+    h('div', { class: 'script-actions' }, [savePreset, applyPreset, deletePreset])
+  ]));
+  root.appendChild(status);
+  bound.push(render);
+  render();
+  return root;
+}
+
 function tabAnim(c, b) {
   var a = c.anim, maxD = Math.max(0.2, Math.min(4, c.dur));
   b.appendChild(sec('In')); b.appendChild(animGrid(c, 'in'));
@@ -177,6 +325,9 @@ function tabAnim(c, b) {
     b.appendChild(rng({ l: 'Crease marks', p: 'anim.fold.crease', min: 0, max: 100, step: 1 }));
     if (!c.cut.on) b.appendChild(hint('Paper fold uses the cut-out paper, so it is drawn even with the cut-out switched off.'));
   }
+  b.appendChild(sec('Keyframe tracks'));
+  b.appendChild(hint('Create and edit transform keyframes in separate lanes. Changes update the preview and export.'));
+  b.appendChild(motionEditor(c));
   b.appendChild(h('div', { class: 'btn-row' }, [sb('Preview in', function () { var q = E.selClip(); if (q) U.previewAnim(q, 'in'); }), sb('Preview out', function () { var q = E.selClip(); if (q) U.previewAnim(q, 'out'); })]));
 }
 
