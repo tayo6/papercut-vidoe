@@ -138,9 +138,9 @@ rejectsWithoutMutation({
   clips: [{ alias: 'ambiguous', media: 'Same name', start: 0, duration: 2 }]
 }, /ambiguous/);
 rejectsWithoutMutation({
-  version: 2,
+  version: 3,
   clips: [{ alias: 'wrong-version', type: 'text', content: 'Text', start: 0, duration: 2 }]
-}, /version: 1/);
+}, /version: 1 for a flat clip plan or version: 2 for a scene plan/);
 rejectsWithoutMutation({
   version: 1,
   clips: [{ alias: 'bad-alias!', type: 'text', content: 'Text', start: 0, duration: 2 }]
@@ -155,5 +155,117 @@ rejectsWithoutMutation({
   version: 1,
   clips: [{ alias: 'conflict', type: 'text', content: 'Conflict', start: 2, duration: 2 }]
 }, /overlaps/);
+
+
+/* Scene plans use absolute scene positions and local clip offsets. */
+E.newProject('16:9');
+const scenePlan = {
+  version: 2,
+  tracks: [
+    { name: 'Visuals', kind: 'video' },
+    { name: 'Dialogue', kind: 'audio' }
+  ],
+  scenes: [
+    {
+      alias: 'intro',
+      name: 'Intro',
+      start: 0,
+      duration: 4,
+      clips: [
+        { alias: 'intro-title', type: 'text', content: 'Welcome', track: 'Visuals', start: 0, duration: 3 },
+        { alias: 'intro-music', media: 'song', track: 'Dialogue', start: 0, duration: 4 }
+      ]
+    },
+    {
+      alias: 'main',
+      name: 'Main Scene',
+      start: 4,
+      duration: 5,
+      clips: [
+        { alias: 'hero-scene-shot', media: 'hero', track: 'Visuals', start: 0.5, duration: 4 }
+      ]
+    },
+    {
+      alias: 'outro',
+      name: 'Outro',
+      start: 9,
+      duration: 3,
+      clips: [
+        { alias: 'outro-title', type: 'text', content: 'Thank you', track: 'Visuals', start: 0, duration: 3 }
+      ]
+    }
+  ]
+};
+const previewScenes = E.previewProjectPlan(scenePlan);
+assert.equal(previewScenes.version, 2);
+assert.equal(previewScenes.scenesToCreate, 3);
+assert.equal(previewScenes.scenesToUpdate, 0);
+assert.equal(previewScenes.scenes.length, 3);
+assert.equal(previewScenes.clipsToCreate, 4);
+assert.equal(previewScenes.items.find(item => item.alias === 'hero-scene-shot').start, 4.5);
+assert.equal(E.proj.scenes.length, 0, 'Scene preview must not mutate project metadata.');
+const sceneApply = E.applyProjectPlan(scenePlan);
+assert.equal(E.proj.scenes.length, 3);
+const introScene = E.proj.scenes.find(scene => scene.alias === 'intro');
+const mainScene = E.proj.scenes.find(scene => scene.alias === 'main');
+assert(introScene && mainScene);
+assert.equal(introScene.name, 'Intro');
+assert.equal(introScene.duration, 4);
+const introTitle = E.proj.clips.find(clip => clip.scriptAlias === 'intro-title');
+const introMusic = E.proj.clips.find(clip => clip.scriptAlias === 'intro-music');
+const heroSceneShot = E.proj.clips.find(clip => clip.scriptAlias === 'hero-scene-shot');
+assert.equal(introTitle.start, 0);
+assert.equal(introTitle.sceneId, introScene.id);
+assert.equal(introTitle.sceneAlias, 'intro');
+assert.equal(introMusic.row, E.proj.rows.find(row => row.scriptName === 'Dialogue').id);
+assert.equal(heroSceneShot.start, 4.5);
+assert.equal(heroSceneShot.sceneId, mainScene.id);
+assert.equal(sceneApply.scenesToCreate, 3);
+assert.equal(E.proj.clips.length, 4);
+const introSceneId = introScene.id;
+E.applyProjectPlan(scenePlan);
+assert.equal(E.proj.scenes.length, 3, 'Reapplying a scene plan must not duplicate scenes.');
+assert.equal(E.proj.scenes.find(scene => scene.alias === 'intro').id, introSceneId);
+assert.equal(E.proj.clips.length, 4, 'Reapplying a scene plan must not duplicate clips.');
+E.undo();
+assert.equal(E.proj.clips.length, 0);
+assert.equal(E.proj.scenes.length, 0);
+
+E.applyProjectPlan(scenePlan);
+const shiftedScenes = JSON.parse(JSON.stringify(scenePlan));
+shiftedScenes.scenes[1].start = 5;
+shiftedScenes.scenes[2].start = 10;
+const shiftedResult = E.applyProjectPlan(shiftedScenes);
+assert.equal(shiftedResult.scenesToCreate, 0);
+assert.equal(shiftedResult.scenesToUpdate, 3);
+assert.equal(E.proj.scenes.find(scene => scene.alias === 'main').start, 5);
+assert.equal(E.proj.clips.find(clip => clip.scriptAlias === 'hero-scene-shot').start, 5.5);
+assert.equal(E.proj.clips.find(clip => clip.scriptAlias === 'outro-title').start, 10);
+assert.equal(E.proj.clips.length, 4);
+E.undo();
+assert.equal(E.proj.scenes.find(scene => scene.alias === 'main').start, 4);
+assert.equal(E.proj.clips.find(clip => clip.scriptAlias === 'hero-scene-shot').start, 4.5);
+assert.equal(E.proj.clips.find(clip => clip.scriptAlias === 'outro-title').start, 9);
+
+rejectsWithoutMutation({
+  version: 2,
+  tracks: [],
+  scenes: [{ alias: 'too-short', name: 'Too short', start: 0, duration: 2, clips: [
+    { alias: 'too-long', type: 'text', content: 'Too long', duration: 3 }
+  ] }]
+}, /fit inside scene/);
+rejectsWithoutMutation({
+  version: 2,
+  tracks: [],
+  scenes: [
+    { alias: 'same-scene', name: 'First', start: 0, duration: 2, clips: [{ alias: 'a', type: 'text', content: 'A', duration: 2 }] },
+    { alias: 'same-scene', name: 'Duplicate', start: 2, duration: 2, clips: [{ alias: 'b', type: 'text', content: 'B', duration: 2 }] }
+  ]
+}, /Scene aliases must be unique/);
+rejectsWithoutMutation({
+  version: 2,
+  tracks: [],
+  scenes: [{ alias: 'empty-scene', name: 'Empty', start: 0, duration: 2, clips: [] }]
+}, /must contain at least one clip/);
 
 console.log('Script-driven project plan validation, preview, apply, aliases and undo tests passed.');

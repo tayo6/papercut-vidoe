@@ -1049,17 +1049,55 @@ function tabProject(c, b) {
   b.appendChild(sec('Script-driven Project Builder'));
   b.appendChild(hint('Build tracks and place clips with a safe JSON plan. Import image, video or audio files first; this builder never reads files or runs JavaScript.'));
   var planStarter = JSON.stringify({
-    version: 1,
+    version: 2,
     tracks: [{ name: 'Main Visuals', kind: 'video' }],
-    clips: [{
-      alias: 'opening-title',
-      type: 'text',
-      content: 'Your title',
-      track: 'Main Visuals',
-      start: 0,
-      duration: 3,
-      properties: { 'transform.scale': 1, 'paper.enabled': true, 'paper.edge': 24 }
-    }]
+    scenes: [
+      {
+        alias: 'intro',
+        name: 'Intro',
+        start: 0,
+        duration: 3,
+        clips: [{
+          alias: 'opening-title',
+          type: 'text',
+          content: 'Your title',
+          track: 'Main Visuals',
+          start: 0,
+          duration: 3,
+          properties: { 'transform.scale': 1, 'paper.enabled': true, 'paper.edge': 24 }
+        }]
+      },
+      {
+        alias: 'main',
+        name: 'Main Scene',
+        start: 3,
+        duration: 4,
+        clips: [{
+          alias: 'main-caption',
+          type: 'text',
+          content: 'Main scene',
+          track: 'Main Visuals',
+          start: 0,
+          duration: 4,
+          properties: { 'transform.scale': 1.05 }
+        }]
+      },
+      {
+        alias: 'outro',
+        name: 'Outro',
+        start: 7,
+        duration: 3,
+        clips: [{
+          alias: 'closing-title',
+          type: 'text',
+          content: 'The End',
+          track: 'Main Visuals',
+          start: 0,
+          duration: 3,
+          properties: { 'transform.scale': 1 }
+        }]
+      }
+    ]
   }, null, 2);
   var savedPlanCode = E.proj.projectPlanCode || '';
   var planCode = h('textarea', { class: 'ti script-code project-plan-code', rows: 12, spellcheck: 'false', 'aria-label': 'Project builder JSON plan' });
@@ -1068,6 +1106,7 @@ function tabProject(c, b) {
   planCode.addEventListener('input', function () { planDraft = planCode.value; });
   var planStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
   var planAssets = h('div', { class: 'project-plan-assets', 'aria-label': 'Imported media references' });
+  var planSceneList = h('div', { class: 'project-plan-scenes', 'aria-label': 'Scene navigator' });
   function refreshPlanAssets() {
     planAssets.textContent = '';
     var ids = E.mediaList || [];
@@ -1081,8 +1120,27 @@ function tabProject(c, b) {
       if (media) planAssets.appendChild(h('div', { class: 'project-plan-asset', text: id + ' — ' + (media.name || media.kind) + ' (' + media.kind + ')' }));
     });
   }
+  function refreshPlanScenes() {
+    planSceneList.textContent = '';
+    var scenes = (E.proj.scenes || []).slice().sort(function (a, b) { return a.start - b.start; });
+    if (!scenes.length) {
+      planSceneList.appendChild(h('p', { class: 'hint', text: 'No scenes applied yet. Use a version 2 plan to create named scenes.' }));
+      return;
+    }
+    planSceneList.appendChild(h('p', { class: 'hint', text: 'Tap a scene to move the playhead to its start:' }));
+    scenes.forEach(function (scene) {
+      var end = scene.start + scene.duration;
+      planSceneList.appendChild(h('button', {
+        class: 'eb project-scene-jump',
+        type: 'button',
+        text: (scene.name || scene.alias) + ' · ' + E.fmtS(scene.start) + '–' + E.fmtS(end),
+        onclick: function () { E.pause(); E.select(null); E.seek(scene.start); }
+      }));
+    });
+  }
   function planSummary(result) {
-    return 'Tracks: ' + result.tracksToCreate + ' new, ' + result.tracksToReuse + ' reused. Clips: ' + result.clipsToCreate + ' new, ' + result.clipsToUpdate + ' updated. Planned end: ' + result.timelineEnd.toFixed(2) + 's.';
+    var sceneText = result.scenesToCreate + ' new, ' + result.scenesToUpdate + ' updated';
+    return 'Scenes: ' + sceneText + '. Tracks: ' + result.tracksToCreate + ' new, ' + result.tracksToReuse + ' reused. Clips: ' + result.clipsToCreate + ' new, ' + result.clipsToUpdate + ' updated. Planned end: ' + result.timelineEnd.toFixed(2) + 's.';
   }
   var loadPlanExample = sb('Load example', function () {
     planCode.value = planStarter; planDraft = planStarter;
@@ -1103,15 +1161,19 @@ function tabProject(c, b) {
     } catch (err) { planStatus.textContent = err.message || String(err); }
   });
   var planPanel = h('div', { class: 'script-library project-plan' }, [
-    hint('A clip can use media: "MEDIA_ID" or type: "text" with content. Every clip needs a unique alias, start time and duration. A track kind is "video" (visual lane) or "audio".'),
+    hint('Version 1 plans place clips at absolute project times. Version 2 plans contain named scenes: each scene has an absolute start and duration, while its clips use start offsets relative to that scene.'),
+    hint('A clip can use media: "MEDIA_ID" or type: "text" with content. Tracks are shared across scenes; use separate named tracks for overlays and parallel audio. All media must already be imported.'),
     planCode,
     planAssets,
+    planSceneList,
     h('div', { class: 'script-actions' }, [loadPlanExample, validatePlan, applyPlan]),
     planStatus
   ]);
   refreshPlanAssets();
+  refreshPlanScenes();
   bound.push(function () {
     refreshPlanAssets();
+    refreshPlanScenes();
     var currentPlan = E.proj.projectPlanCode || '';
     if (currentPlan !== savedPlanCode && document.activeElement !== planCode) {
       savedPlanCode = currentPlan; planDraft = currentPlan || planStarter; planCode.value = planDraft;

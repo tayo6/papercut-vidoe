@@ -110,4 +110,63 @@ To create a clip from imported media, replace the text clip with an entry such a
 
     { "alias": "hero-shot", "media": "MEDIA_ID", "track": "Main Visuals", "start": 3, "duration": 4 }
 
-The track kind "video" declares a visual lane (images, video and text can use it); "audio" declares an audio lane. Clip times are absolute project seconds. A lane cannot contain overlapping clips. Supported initial properties are the same allow-listed transform, text, audio and papercut properties exposed by the editor. This version creates/updates clips and named tracks; importing files, deleting clips, scene grouping and arbitrary JavaScript execution are deliberately outside its scope.
+The track kind "video" declares a visual lane (images, video and text can use it); "audio" declares an audio lane. Clip times are absolute project seconds. A lane cannot contain overlapping clips. Supported initial properties are the same allow-listed transform, text, audio and papercut properties exposed by the editor. Version 1 flat plans create and update clips and named tracks; use version 2 scene plans below to organize clips into scenes. Importing files, deleting content by omission and arbitrary JavaScript execution are deliberately outside the builder's scope.
+
+
+## Scene-based Project Plans
+
+Version 2 project plans describe complete scenes. Each scene has a stable alias, a display name, an absolute timeline start and a duration. Clips nested inside a scene use the start field as a scene-relative offset; the editor converts that to absolute project time when applying the plan. Shared named tracks can hold multiple scenes, text and visual layers, and independent audio lanes.
+
+Example structure:
+
+    {
+      "version": 2,
+      "tracks": [
+        { "name": "Visuals", "kind": "video" },
+        { "name": "Music", "kind": "audio" }
+      ],
+      "scenes": [
+        {
+          "alias": "intro",
+          "name": "Intro",
+          "start": 0,
+          "duration": 5,
+          "clips": [
+            {
+              "alias": "intro-title",
+              "type": "text",
+              "content": "Welcome",
+              "track": "Visuals",
+              "start": 0,
+              "duration": 3
+            },
+            {
+              "alias": "intro-music",
+              "media": "MEDIA_ID",
+              "track": "Music",
+              "start": 0,
+              "duration": 5
+            }
+          ]
+        },
+        {
+          "alias": "main",
+          "name": "Main Scene",
+          "start": 5,
+          "duration": 8,
+          "clips": [
+            {
+              "alias": "hero-shot",
+              "media": "VIDEO_MEDIA_ID",
+              "track": "Visuals",
+              "start": 0.5,
+              "duration": 6
+            }
+          ]
+        }
+      ]
+    }
+
+When the main scene start changes from 5 to 7, its nested clip starts at 7.5 seconds automatically. Reapplying the plan updates matching scene and clip aliases without duplicating them. The Project inspector includes a scene navigator, and the timeline shows clickable scene blocks that move the playhead to each scene's start.
+
+Version 1 flat plans remain supported. Version 2 scenes currently organize and position existing imported media and text clips; transitions, scene templates, deleting content by omission, and per-scene animation-script blocks are later extensions. Project SnipScript can already animate the clips inside scenes by their stable clip aliases.

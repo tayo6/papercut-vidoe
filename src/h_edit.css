@@ -444,3 +444,14 @@ body.ed-on .wrap { display: none; }
 .ed .project-plan-assets .hint { margin: 0 0 6px; }
 .ed .project-plan-asset { padding: 4px 0; border-top: 1px solid var(--e-line); font: 11px/1.45 var(--f-mono); overflow-wrap: anywhere; }
 .ed .project-plan-code { min-height: 230px; }
+
+
+/* Scene blocks on the timeline */
+.tl-scenes { position: relative; display: flex; height: 30px; border-bottom: 1px solid var(--e-line); background: var(--e-p1); }
+.tl-scenes-head { font-size: 10px; font-weight: 700; color: var(--e-muted); }
+.tl-scene-lane { position: relative; flex: none; height: 100%; background: repeating-linear-gradient(90deg, transparent 0 79px, rgba(255,255,255,.025) 79px 80px); }
+.tl-scene-block { position: absolute; top: 4px; height: 22px; min-width: 28px; padding: 0 7px; overflow: hidden; border: 1px solid rgba(255,255,255,.18); border-radius: 5px; background: var(--e-p3); color: var(--e-fg); font-size: 10px; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.tl-scene-block:hover { border-color: var(--e-accent); background: var(--e-p2); }
+.project-plan-scenes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 8px; border: 1px solid var(--e-line); border-radius: 7px; background: var(--e-p2); }
+.project-plan-scenes .hint { flex-basis: 100%; margin: 0 0 2px; }
+.project-scene-jump { min-height: 30px; }
