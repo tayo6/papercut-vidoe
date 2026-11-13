@@ -23,7 +23,7 @@ const paper=Object.assign({},clip,{kind:'image',scriptCode:'at 0s set paper.edge
 assert.strictEqual(E.runClipScriptFrame(paper,0.5).paper.edge,10);assert.strictEqual(E.runClipScriptFrame(paper,1.5).paper.edge,30);
 const aud=Object.assign({},clip,{kind:'audio',scriptCode:'set audio.volume = 0.5 + sin(time) * 0.2'});
 assert(Math.abs(E.runClipScriptFrame(aud,Math.PI/2).audio.volume-0.7)<1e-9);
-const audCue=Object.assign({},clip,{kind:'audio',scriptCode:'at 0s set audio.volume = 0.2\\nat 1s tween audio.volume = 1 over 1s ease linear'});
+const audCue=Object.assign({},clip,{kind:'audio',scriptCode:'at 0s set audio.volume = 0.2\nat 1s tween audio.volume = 1 over 1s ease linear'});
 assert.strictEqual(E.runClipScriptFrame(audCue,0.5).audio.volume,0.2);
 assert(Math.abs(E.runClipScriptFrame(audCue,1.5).audio.volume-0.6)<1e-9);
 assert.throws(()=>E.compileScript(clip,'set window.location = 4'),/Line 1/);assert.throws(()=>E.compileScript(clip,'set audio.volume = 1'),/not scriptable/);
