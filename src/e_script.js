@@ -10,6 +10,16 @@ var FUNCS={
  rgb:function(r,g,b){function hx(v){return Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0');}if(![r,g,b].every(function(v){return typeof v==='number'&&isFinite(v);}))throw new TypeError('rgb() needs three finite numbers.');return '#'+hx(r)+hx(g)+hx(b);}
 };
 function fail(n,s){throw new SyntaxError('Line '+n+': '+s);}
+function parseTweenEase(source,line){
+ var name=String(source==null?'smooth':source).trim().toLowerCase();
+ if(['linear','in','out','inout','smooth'].indexOf(name)>=0)return name;
+ var m=name.match(/^cubic-bezier\s*\(\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*\)$/i);
+ if(!m)fail(line,'Use a named easing mode or cubic-bezier(x1, y1, x2, y2).');
+ var v=m.slice(1).map(Number);if(!v.every(function(x){return isFinite(x);}))fail(line,'Bezier control points must be finite numbers.');
+ if(v[0]<0||v[0]>1||v[2]<0||v[2]>1)fail(line,'Bezier X control points must be between 0 and 1.');
+ if(v[1]<-0.25||v[1]>1.25||v[3]<-0.25||v[3]>1.25)fail(line,'Bezier Y control points must be between -0.25 and 1.25.');
+ return {type:'bezier',x1:v[0],y1:v[1],x2:v[2],y2:v[3]};
+}
 function tokens(s,line){var out=[],i=0,m,r,ch;while(i<s.length){ch=s.charAt(i);if(/\s/.test(ch)){i++;continue;}r=s.slice(i);
  if((m=r.match(/^#[0-9a-f]{6}/i))){out.push({type:'color',value:m[0].toLowerCase()});i+=m[0].length;}
  else if((m=r.match(/^(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[+-]?\d+)?/i))){out.push({type:'number',value:Number(m[0])});i+=m[0].length;}
@@ -43,8 +53,8 @@ function parseProgram(clip,source){if(typeof source!=='string')throw new TypeErr
  for(var i=0;i<lines.length;i++){var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
   var cue=line.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+(set|tween)\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i),id,ast,mode,rhs,atTime,dur=0,ease='smooth',over;
   if(cue){atTime=Number(cue[1]);mode=cue[2].toLowerCase();id=cue[3].toLowerCase();rhs=cue[4];if(!isFinite(atTime)||atTime<0||atTime>Math.max(0,clip.dur||0)+1e-6)fail(i+1,'Cue time must be between 0 and this clip’s duration.');
-   if(mode==='tween'){over=rhs.match(/^(.+?)\s+over\s+(\d+(?:\.\d*)?|\.\d+)\s*s(?:\s+ease\s+(linear|in|out|inout|smooth))?$/i);if(!over)fail(i+1,'Use: at 0.5s tween transform.scale = 1 over 0.4s ease out.');
-    rhs=over[1];dur=Number(over[2]);ease=(over[3]||'smooth').toLowerCase();if(!isFinite(dur)||dur<=0||atTime+dur>Math.max(0,clip.dur||0)+1e-6)fail(i+1,'Tween duration must be positive and end within the clip.');}
+   if(mode==='tween'){over=rhs.match(/^(.+?)\s+over\s+(\d+(?:\.\d*)?|\.\d+)\s*s(?:\s+ease\s+(.+))?$/i);if(!over)fail(i+1,'Use: at 0.5s tween transform.scale = 1 over 0.4s ease out.');
+    rhs=over[1];dur=Number(over[2]);ease=parseTweenEase(over[3]||'smooth',i+1);if(!isFinite(dur)||dur<=0||atTime+dur>Math.max(0,clip.dur||0)+1e-6)fail(i+1,'Tween duration must be positive and end within the clip.');}
    ast=parseExpr(rhs,i+1);
   }else{var set=line.match(/^set\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i);if(!set)fail(i+1,'Use: set transform.x = expression, or at 0.5s tween transform.scale = 1 over 0.4s ease out.');
    id=set[1].toLowerCase();ast=parseExpr(set[2],i+1);mode='continuous';}
@@ -70,7 +80,16 @@ E.easeProgress=function(ease,progress){
  if(ease==='inout')return k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
  return k*k*(3-2*k);
 };
-function sampleTween(tw,t){var k=Math.max(0,Math.min(1,(t-tw.at)/tw.duration)),e=E.easeProgress(tw.ease,k);
+function bezierCoord(t,a,b){var u=1-t;return 3*u*u*t*a+3*u*t*t*b+t*t*t;}
+E.cubicBezierProgress=function(curve,progress){
+ if(!curve||typeof curve!=='object')throw new TypeError('A Bezier curve is required.');
+ var x1=Number(curve.x1),y1=Number(curve.y1),x2=Number(curve.x2),y2=Number(curve.y2);
+ if(![x1,y1,x2,y2].every(function(v){return isFinite(v);})||x1<0||x1>1||x2<0||x2>1||y1<-.25||y1>1.25||y2<-.25||y2>1.25)throw new RangeError('Bezier control points are outside the supported range.');
+ var k=Number(progress);if(!isFinite(k))k=0;k=Math.max(0,Math.min(1,k));if(k===0||k===1)return k;
+ var low=0,high=1,t=.5;for(var i=0;i<20;i++){t=(low+high)/2;if(bezierCoord(t,x1,x2)<k)low=t;else high=t;}
+ return bezierCoord((low+high)/2,y1,y2);
+};
+function sampleTween(tw,t){var k=Math.max(0,Math.min(1,(t-tw.at)/tw.duration)),e=tw.ease&&typeof tw.ease==='object'?E.cubicBezierProgress(tw.ease,k):E.easeProgress(tw.ease,k);
  return typeof tw.from==='string'?colorMix(tw.from,tw.to,e):tw.from+(tw.to-tw.from)*e;}
 function cueValue(clip,events,id,t,d){var started=false,current,active=null;for(var i=0;i<events.length;i++){var q=events[i];if(q.id!==id||q.at>t)continue;
  if(!started){current=E.getProperty(clip,id,q.at);started=true;}if(active)current=sampleTween(active,q.at);active=null;var target=evalTarget(q,q.at,d);
