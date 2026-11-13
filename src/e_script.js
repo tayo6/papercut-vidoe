@@ -48,7 +48,10 @@ function parseProgram(clip,source){if(typeof source!=='string')throw new TypeErr
    ast=parseExpr(rhs,i+1);
   }else{var set=line.match(/^set\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i);if(!set)fail(i+1,'Use: set transform.x = expression, or at 0.5s tween transform.scale = 1 over 0.4s ease out.');
    id=set[1].toLowerCase();ast=parseExpr(set[2],i+1);mode='continuous';}
-  if(!ALLOWED[id]||available.indexOf(id)<0)fail(i+1,'Property "'+id+'" is not scriptable on this clip.');
+  var requested=id,canonical=null;
+  for(var ai=0;ai<available.length;ai++)if(String(available[ai]).toLowerCase()===requested.toLowerCase()){canonical=available[ai];break;}
+  if(!canonical||!ALLOWED[canonical])fail(i+1,'Property "'+requested+'" is not scriptable on this clip.');
+  id=canonical;
   if(mode==='continuous'){if(eids[id])fail(i+1,'Do not mix continuous and timed cues for '+id+'.');cids[id]=1;continuous.push({id:id,expression:ast,line:i+1});}
   else{if(cids[id])fail(i+1,'Do not mix continuous and timed cues for '+id+'.');eids[id]=1;events.push({id:id,expression:ast,line:i+1,at:atTime,mode:mode,duration:dur,ease:ease,order:order++});}
   if(continuous.length+events.length>32)fail(i+1,'A script can contain at most 32 statements.');}
