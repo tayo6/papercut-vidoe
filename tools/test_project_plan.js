@@ -335,7 +335,7 @@ assert.equal(JSON.stringify(E.proj), beforeBadUnified, 'Failed unified apply mus
 
 const badTransition = JSON.parse(JSON.stringify(unifiedPlan));
 badTransition.scenes[0].transitionIn = { type: 'slide-left', duration: 0.5 };
-assert.throws(() => E.compileUnifiedProject(badTransition), /only supports the "crossfade" type/);
+assert.throws(() => E.compileUnifiedProject(badTransition), /supports only the "crossfade" type/);
 const longTransition = JSON.parse(JSON.stringify(unifiedPlan));
 longTransition.scenes[0].transitionIn = { type: 'crossfade', duration: 4 };
 assert.throws(() => E.compileUnifiedProject(longTransition), /must not exceed its scene duration/);
