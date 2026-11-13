@@ -13,8 +13,17 @@ var DEFS = [
   { id:'audio.fadeOut', label:'Fade out', group:'Audio', type:'number', kinds:['audio','video'], path:['fadeOut'], min:0, max:60, step:0.01 },
   { id:'text.fontSize', label:'Font size', group:'Text', type:'number', kinds:['text'], path:['text','size'], min:1, max:2000, step:1 },
   { id:'text.color', label:'Text colour', group:'Text', type:'color', kinds:['text'], path:['text','color'] },
+  { id:'paper.enabled', label:'Papercut enabled', group:'PaperCut', type:'boolean', kinds:['image','video','text'], path:['cut','on'] },
   { id:'paper.edge', label:'Paper edge', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','edge'], min:0, max:100, step:1 },
-  { id:'paper.roughness', label:'Paper roughness', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','rough'], min:0, max:100, step:1 }
+  { id:'paper.roughness', label:'Paper roughness', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','rough'], min:0, max:100, step:1 },
+  { id:'paper.detail', label:'Paper detail', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','detail'], min:10, max:100, step:1 },
+  { id:'paper.grain', label:'Paper grain', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','grain'], min:0, max:100, step:1 },
+  { id:'paper.color', label:'Paper colour', group:'PaperCut', type:'color', kinds:['image','video','text'], path:['cut','color'] },
+  { id:'paper.boil', label:'Stop-motion boil', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','boil'], min:0, max:10, step:1 },
+  { id:'paper.boilFps', label:'Boil rate', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','boilFps'], min:2, max:24, step:1 },
+  { id:'paper.boilLoop', label:'Boil drawings', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','boilLoop'], min:2, max:8, step:1 },
+  { id:'paper.shadow', label:'Paper shadow', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','shadow'], min:0, max:60, step:1 },
+  { id:'paper.shadowBlur', label:'Paper shadow blur', group:'PaperCut', type:'number', kinds:['image','video','text'], path:['cut','shBlur'], min:0, max:40, step:1 }
 ];
 var BY_ID = Object.create(null);
 DEFS.forEach(function (d) { BY_ID[d.id] = d; });
@@ -25,6 +34,7 @@ function timeOf(c,t) { if(typeof t!=='number' || !isFinite(t)) t=E.localT(c); re
 function normalize(d,value) {
   if(d.type==='number'){ var n=Number(value); if(!isFinite(n)) throw new TypeError(d.id+' requires a finite number'); return K.clamp(n,d.min,d.max); }
   if(d.type==='color'){ if(typeof value!=='string' || !/^#[0-9a-f]{6}$/i.test(value)) throw new TypeError(d.id+' requires a six-digit hex colour'); return value.toLowerCase(); }
+  if(d.type==='boolean'){ if(typeof value!=='boolean') throw new TypeError(d.id+' requires true or false'); return value; }
   throw new TypeError('Unsupported property type: '+d.type);
 }
 E.PROPERTY_DEFS=DEFS.slice();
@@ -52,6 +62,27 @@ E.evaluateProperties=function(c,time,overrides){
     transform:{x:values['transform.x'],y:values['transform.y'],scale:values['transform.scale'],rotation:values['transform.rotation'],opacity:values['transform.opacity'],flipX:!!tf.fx,flipY:!!tf.fy,fit:tf.fit},
     audio:values['audio.volume']==null?null:{volume:values['audio.volume'],fadeIn:values['audio.fadeIn'],fadeOut:values['audio.fadeOut'],muted:!!c.mute},
     text:c.text?{content:c.text.str,fontSize:values['text.fontSize'],color:values['text.color'],align:c.text.align}:null,
-    paper:c.cut?{enabled:!!c.cut.on,edge:values['paper.edge'],roughness:values['paper.roughness']}:null};
+    paper:c.cut?{enabled:values['paper.enabled'],edge:values['paper.edge'],roughness:values['paper.roughness'],detail:values['paper.detail'],grain:values['paper.grain'],color:values['paper.color'],boil:values['paper.boil'],boilFps:values['paper.boilFps'],boilLoop:values['paper.boilLoop'],shadow:values['paper.shadow'],shadowBlur:values['paper.shadowBlur']}:null};
+};
+var SCRIPT_PAPER_FIELDS=[
+  ['paper.enabled','on','enabled'],['paper.edge','edge','edge'],['paper.roughness','rough','roughness'],
+  ['paper.detail','detail','detail'],['paper.grain','grain','grain'],['paper.color','color','color'],
+  ['paper.boil','boil','boil'],['paper.boilFps','boilFps','boilFps'],['paper.boilLoop','boilLoop','boilLoop'],
+  ['paper.shadow','shadow','shadow'],['paper.shadowBlur','shBlur','shadowBlur']
+];
+E.applyScriptedProperties=function(c,frame){
+  if(!c||!frame||!frame.scriptedValues)return c;
+  var v=frame.scriptedValues,out=null;
+  if(c.text&&(Object.prototype.hasOwnProperty.call(v,'text.fontSize')||Object.prototype.hasOwnProperty.call(v,'text.color'))){
+    out=Object.assign({},c);out.text=Object.assign({},c.text);
+    if(Object.prototype.hasOwnProperty.call(v,'text.fontSize'))out.text.size=frame.text.fontSize;
+    if(Object.prototype.hasOwnProperty.call(v,'text.color'))out.text.color=frame.text.color;
+  }
+  if(c.cut){
+    var changed=false;SCRIPT_PAPER_FIELDS.forEach(function(f){if(Object.prototype.hasOwnProperty.call(v,f[0]))changed=true;});
+    if(changed){if(!out)out=Object.assign({},c);out.cut=Object.assign({},c.cut);
+      SCRIPT_PAPER_FIELDS.forEach(function(f){if(Object.prototype.hasOwnProperty.call(v,f[0]))out.cut[f[1]]=frame.paper[f[2]];});}
+  }
+  return out||c;
 };
 })();
