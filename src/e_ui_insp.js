@@ -1448,6 +1448,13 @@ function build() {
 }
 function sync() { for (var i = 0; i < bound.length; i++) bound[i](); }
 I.build = build; I.sync = sync;
+/* Direct entry point for the mobile Project navigation button. */
+I.showProject = function () {
+  tabName = 'proj';
+  E.select(null);
+  build();
+};
+I.isProjectTab = function () { return !E.selClip() && tabName === 'proj'; };
 var syncSoon = U.raf1(sync);
 function onProject() { if (keyOf() !== curKey) build(); else syncSoon(); }
 E.on('sel', build);
