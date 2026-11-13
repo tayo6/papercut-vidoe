@@ -23,7 +23,7 @@ assert.strictEqual(E.listClipScriptCues(movedCues)[1].at,1.5);
 assert.throws(()=>E.moveClipScriptCue(movedCues,99,2),/no longer exists/);
 assert(Math.abs(E.runClipScriptFrame(cues,1.5).transform.scale-0.875)<1e-9);assert.strictEqual(E.runClipScriptFrame(cues,2).transform.scale,1);
 const tx=Object.assign({},clip,{kind:'text',scriptCode:'set text.fontSize = 180\nset text.color = rgb(255, 128, 0)'});
-f=E.runClipScriptFrame(tx,1);assert.strictEqual(f.text.fontSize,180);assert.strictEqual(f.text.color,'#ff8000');
+assert.strictEqual(E.compileScript(tx,tx.scriptCode).statements,2);f=E.runClipScriptFrame(tx,1);if(!f)throw new Error('Text script runtime error: '+E.getClipScriptError(tx));assert.strictEqual(f.text.fontSize,180);assert.strictEqual(f.text.color,'#ff8000');
 const paper=Object.assign({},clip,{kind:'image',scriptCode:'at 0s set paper.edge = 10\nat 1s tween paper.edge = 50 over 1s ease linear'});
 assert.strictEqual(E.runClipScriptFrame(paper,0.5).paper.edge,10);assert.strictEqual(E.runClipScriptFrame(paper,1.5).paper.edge,30);
 const aud=Object.assign({},clip,{kind:'audio',scriptCode:'set audio.volume = 0.5 + sin(time) * 0.2'});
