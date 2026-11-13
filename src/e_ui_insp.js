@@ -1033,6 +1033,11 @@ function tabProject(c, b) {
     }).catch(showBundleError);
   });
   var importBundle = sb('Import .snip file', function () { bundleFile.click(); });
+  var loadMaryDemo = sb('Load Mary demo', function () {
+    if (!E.MARY_DEMO) { bundleStatus.textContent = 'The built-in Mary demo is unavailable in this build.'; return; }
+    bundleCode.value = JSON.stringify(E.MARY_DEMO, null, 2);
+    bundleStatus.textContent = 'Loaded the eight-scene Mary Had a Little Lamb papercut showcase as a draft. Validate it, then choose Apply & Preview.';
+  });
   var copyBundle = sb('Copy script', function () {
     var source = bundleCode.value || '';
     function fallbackCopy() {
@@ -1088,7 +1093,7 @@ function tabProject(c, b) {
   var applyPreviewBundle = sb('Apply & Preview', function () { applyBundle(true); });
   b.appendChild(bundleFile);
   b.appendChild(bundleCode);
-  b.appendChild(h('div', { class: 'script-actions' }, [importBundle, copyBundle, downloadBundle, restoreBundle]));
+  b.appendChild(h('div', { class: 'script-actions' }, [importBundle, loadMaryDemo, copyBundle, downloadBundle, restoreBundle]));
   b.appendChild(h('div', { class: 'script-actions' }, [checkBundle, applyBundleButton, applyPreviewBundle]));
   b.appendChild(bundleStatus);
   bound.push(function () {

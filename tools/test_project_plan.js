@@ -13,6 +13,7 @@ const sandbox = {
 vm.runInNewContext(fs.readFileSync('src/e_core.js', 'utf8'), sandbox);
 vm.runInNewContext(fs.readFileSync('src/e_props.js', 'utf8'), sandbox);
 vm.runInNewContext(fs.readFileSync('src/e_script.js', 'utf8'), sandbox);
+vm.runInNewContext(fs.readFileSync('src/demo_mary.js', 'utf8'), sandbox);
 const E = sandbox.window.__snip.E;
 
 E.media = {
@@ -353,4 +354,33 @@ assert.equal(E.sceneTransitionAlpha('before', 5.5), 0);
 assert.equal(E.sceneTransitionAlpha('after', 5), 1);
 assert.equal(E.sceneTransitionAlpha('missing', 4.5), 1);
 
-console.log('Project plans, unified scripts, scene transitions and undo tests passed.');
+/* The built-in Mary showcase is a full, media-free version 3 project. */
+E.newProject('16:9');
+const maryCheck = E.compileUnifiedProject(E.MARY_DEMO);
+assert.equal(maryCheck.scenes.length, 8);
+assert.equal(maryCheck.items.length, 16);
+assert.equal(maryCheck.scenes.filter(scene => scene.transitionIn).length, 7);
+assert(maryCheck.clipScriptStatements > 0);
+assert(maryCheck.sceneScriptStatements > 0);
+assert(maryCheck.projectScriptStatements > 0);
+const maryApply = E.applyUnifiedProject(E.MARY_DEMO);
+assert.equal(E.proj.scenes.length, 8);
+assert.equal(E.proj.clips.length, 16);
+assert.equal(maryApply.scriptStatements, maryCheck.scriptStatements);
+const maryCard = E.proj.clips.find(clip => clip.scriptAlias === 'mary-lyric-1');
+const maryBurst = E.proj.clips.find(clip => clip.scriptAlias === 'mary-burst-1');
+const maryScene = E.proj.scenes.find(scene => scene.alias === 'scene-01');
+assert(maryCard && maryBurst && maryScene);
+assert.equal(E.runClipScriptFrame(maryCard, 0).transform.opacity, 0);
+assert(E.runClipScriptFrame(maryCard, 0.3).transform.scale > 0.14);
+assert.equal(E.runSceneScriptFrame(maryScene, maryCard, 1).scriptedValues['paper.boil'], 9);
+const maryProjectFrame = E.runProjectScriptFrame(maryBurst, 2);
+assert(Number.isFinite(maryProjectFrame.transform.rotation));
+assert(Number.isFinite(maryProjectFrame.transform.scale));
+assert(Math.abs(E.sceneTransitionAlpha('scene-01', 6.3) - 0.5) < 1e-9);
+assert.equal(E.sceneTransitionAlpha('scene-02', 5.8), 0);
+E.undo();
+assert.equal(E.proj.clips.length, 0, 'The demo must apply as one undoable change.');
+assert.equal(E.proj.scenes.length, 0);
+
+console.log('Project plans, unified scripts, scene transitions, undo and Mary papercut demo tests passed.');
