@@ -79,3 +79,19 @@ splitRight.kf.s[0].e.y2 = 0.9;
 assert.equal(splitSource.kf.s[0].e.y2, 1.1);
 
 console.log('Per-keyframe Bezier easing tests passed.');
+
+const laneClip = E.newClip('image', { dur: 6 });
+E.addKf(laneClip, 'x', 0);
+E.addKf(laneClip, 'x', 3);
+E.addKf(laneClip, 'y', 0);
+assert.equal(E.movePropertyKfTime(laneClip, 'x', 0, 1.25), 1.25);
+assert.equal(JSON.stringify(laneClip.kf.x.map(k => k.t)), JSON.stringify([1.25, 3]));
+assert.equal(JSON.stringify(laneClip.kf.y.map(k => k.t)), JSON.stringify([0]));
+assert.equal(JSON.stringify(E.kfTimes(laneClip)), JSON.stringify([0, 1.25, 3]));
+assert.equal(E.movePropertyKfTime(laneClip, 'x', 1.25, 3), 1.25);
+assert.equal(E.movePropertyKfTime(laneClip, 'x', 1.25, 99), 6);
+assert.equal(E.movePropertyKfTime(laneClip, 'y', 4, 2), 4);
+assert.equal(E.movePropertyKfTime(laneClip, 'rotation', 0, 1), 0);
+assert.equal(JSON.stringify(laneClip.kf.x.map(k => k.t)), JSON.stringify([3, 6]));
+
+console.log('Independent property keyframe drag tests passed.');

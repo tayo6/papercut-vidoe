@@ -198,9 +198,49 @@ function motionEditor(c) {
           style: { left: pct + '%' }, title: info.label + ' · ' + key.t.toFixed(2) + 's · ' + key.v,
           'aria-label': 'Select ' + info.label + ' keyframe at ' + key.t.toFixed(2) + ' seconds',
           'aria-pressed': String(!!active), html: U.kfIcon(11) });
-        marker.addEventListener('click', function () {
+        var suppressPointerClick = false, laneDrag = null;
+        marker.addEventListener('click', function (e) {
+          if (suppressPointerClick && e.detail !== 0) { suppressPointerClick = false; return; }
           selected = { p: info.p, t: key.t }; E.pause(); E.seek(c.start + key.t); render();
         });
+        marker.addEventListener('pointerdown', function (e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          var rect = track.getBoundingClientRect(); if (!rect.width) return;
+          suppressPointerClick = false;
+          laneDrag = { pid: e.pointerId, sx: e.clientX, time: key.t, rect: rect, moved: false };
+          E.pause();
+          if (marker.setPointerCapture) { try { marker.setPointerCapture(e.pointerId); } catch (err) {} }
+          e.stopPropagation();
+        });
+        marker.addEventListener('pointermove', function (e) {
+          var d = laneDrag; if (!d || d.pid !== e.pointerId) return;
+          if (!d.moved && Math.abs(e.clientX - d.sx) < 4) return;
+          d.moved = true;
+          var progress = clamp((e.clientX - d.rect.left) / d.rect.width, 0, 1);
+          var target = Math.round(progress * c.dur * 100) / 100;
+          var got = E.movePropertyKfTime(c, info.p, d.time, target);
+          d.time = got;
+          marker.style.left = (got / Math.max(0.001, c.dur) * 100) + '%';
+          marker.title = info.label + ' · ' + got.toFixed(2) + 's · ' + key.v;
+          marker.setAttribute('aria-label', 'Select ' + info.label + ' keyframe at ' + got.toFixed(2) + ' seconds');
+          E.dirty();
+          e.preventDefault();
+        });
+        function finishLaneDrag(e) {
+          var d = laneDrag; if (!d || d.pid !== e.pointerId) return;
+          laneDrag = null;
+          if (marker.releasePointerCapture && marker.hasPointerCapture && marker.hasPointerCapture(e.pointerId)) {
+            try { marker.releasePointerCapture(e.pointerId); } catch (err) {}
+          }
+          if (!d.moved) return;
+          suppressPointerClick = true;
+          selected = { p: info.p, t: d.time };
+          E.emit('project'); E.dirty(); E.commit();
+          render();
+          E.seek(c.start + d.time);
+        }
+        marker.addEventListener('pointerup', finishLaneDrag);
+        marker.addEventListener('pointercancel', finishLaneDrag);
         track.appendChild(marker);
       });
       var add = h('button', { class: 'mke-add', type: 'button', text: '+',
