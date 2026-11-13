@@ -191,6 +191,10 @@ body.ed-on .wrap { display: none; }
 .tl-row { position: relative; display: flex; border-bottom: 1px solid #1a1d22; }
 .tl-row.off .tl-lane { opacity: .45; }
 .tl-head { position: sticky; left: 0; z-index: 4; width: var(--head); flex: none; background: var(--e-p1); border-right: 1px solid var(--e-line); display: flex; align-items: center; justify-content: center; }
+.tl-track-tools { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--e-line); background: var(--e-p1); }
+.tl-track-tools .eb { min-height: 30px; }
+.tl-track-name { min-width: 20px; font-size: 10px; font-weight: 700; color: var(--e-mut); text-align: center; }
+.tl-head { gap: 3px; }
 .tl-head .rb { width: 32px; height: 32px; border-radius: 8px; color: var(--e-mut); display: grid; place-items: center; }
 .tl-head .rb:hover { background: var(--e-p3); color: var(--e-fg); }
 .tl-lane { position: relative; flex: none; height: 100%; }
