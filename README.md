@@ -56,6 +56,11 @@ Example:
 
 Use a text clip with type "text" and a content field instead of media when needed. Media must be imported into the editor first and referenced by its Media ID. Validate entire project checks the structure, media, clip scripts, scene scripts and project script without changing the timeline. Apply project script applies the structure and all scripts as one undoable change. The older version 1/2 plan documents and separate clip/scene/project script editors remain supported.
 
+
+### Bringing scripts into Snipwork
+
+The Unified Project Script editor supports .snip files (JSON content), as well as ordinary copy and paste. Use **Import .snip file** to load a script as a draft, **Copy script** to move it between ChatGPT and Snipwork, or **Download .snip file** to keep the current draft. Importing never changes the timeline. Run **Validate entire project** before applying. **Apply & Preview** validates, applies one undoable project change and starts playback from the beginning. You can also apply without starting playback. Media files remain separate: import them into the Media library first, then use their current Media IDs in the script.
+
 ## SnipScript v2
 
 Select an image, video, text or audio clip, then open Edit → Script. SnipScript is a restricted expression language, not JavaScript. It cannot access the DOM, network, storage, imports or arbitrary browser APIs.
