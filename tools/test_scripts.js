@@ -46,7 +46,7 @@ const loopClip=Object.assign({},clip,{scriptCode:[
  'set transform.scale = smoothstep(0, 1, 0.5)',
  'set transform.rotation = wrap(-1, 0, 3)',
  'set transform.opacity = remap(5, 0, 10, 0, 1)'
-].join('\\n')});
+].join('\n')});
 f=E.runClipScriptFrame(loopClip,2.5);
 assert.strictEqual(f.transform.x,1.5);
 assert.strictEqual(f.transform.y,0.5);
