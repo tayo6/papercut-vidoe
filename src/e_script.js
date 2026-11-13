@@ -150,15 +150,16 @@ E.runClipScript=function(clip,time){var f=E.runClipScriptFrame(clip,time);return
 E.getClipScriptError=function(clip){var c=clip&&CACHE.get(clip);return c&&c.source===(clip.scriptCode||'')?c.error:'';};
 
 /* Project-level SnipScript: absolute project time, explicit clip targets, shared safe expressions. */
-function parseProjectProgram(source){
+function parseProjectProgram(source,projectOverride){
  if(typeof source!=='string')throw new TypeError('Project script must be text.');
  if(source.length>8192)throw new SyntaxError('Project scripts are limited to 8,192 characters.');
- var project=E.proj,duration=Math.max(0,E.end()),lines=source.split(/\r?\n/),groups=Object.create(null),total=0,order=0;
+ var project=projectOverride||E.proj,duration=0,lines=source.split(/\r?\n/),groups=Object.create(null),total=0,order=0;
+ (project.clips||[]).forEach(function(clip){duration=Math.max(duration,(Number(clip.start)||0)+(Number(clip.dur)||0));});
  for(var i=0;i<lines.length;i++){
   var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
   var timed=line.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+clip\s+([a-z0-9_-]+)\s+(.+)$/i),plain=line.match(/^clip\s+([a-z0-9_-]+)\s+(.+)$/i),id=timed?timed[2]:plain?plain[1]:null,directive=timed?('at '+timed[1]+'s '+timed[3]):plain?plain[2]:null;
   if(!id)fail(i+1,'Use: clip <clip-id> set property = expression, or at 0s clip <clip-id> tween property = value over 1s ease out.');
-  var clip=E.clipById(id);if(!clip&&E.proj&&Array.isArray(E.proj.clips)){var aliasKey=String(id).toLowerCase();for(var ai=0;ai<E.proj.clips.length;ai++){var candidate=E.proj.clips[ai];if(candidate.scriptAlias&&String(candidate.scriptAlias).toLowerCase()===aliasKey){clip=candidate;id=clip.id;break;}}}if(!clip)fail(i+1,'Unknown clip target "'+id+'".');
+  var clip=null;for(var ci=0;ci<(project.clips||[]).length;ci++)if(project.clips[ci].id===id){clip=project.clips[ci];break;}if(!clip&&project&&Array.isArray(project.clips)){var aliasKey=String(id).toLowerCase();for(var ai=0;ai<project.clips.length;ai++){var candidate=project.clips[ai];if(candidate.scriptAlias&&String(candidate.scriptAlias).toLowerCase()===aliasKey){clip=candidate;id=clip.id;break;}}}if(!clip)fail(i+1,'Unknown clip target "'+id+'".');
   var parsed;
   try{parsed=parseProgram(clip,directive,{maxTime:duration});}
   catch(err){var msg=err&&err.message?err.message:String(err);var lm=msg.match(/^Line \d+:\s*(.*)$/);fail(i+1,lm?lm[1]:msg);}
@@ -201,6 +202,10 @@ E.compileProjectScript=function(source){
  var p=parseProjectProgram(String(source==null?'':source));
  return {statements:p.statements,targets:p.targets.slice(),properties:p.targets.map(function(id){return {clipId:id,properties:p.groups[id].properties.slice()};})};
 };
+E.compileProjectScriptFor=function(source,project){
+ var p=parseProjectProgram(String(source==null?'':source),project||E.proj);
+ return {statements:p.statements,targets:p.targets.slice(),properties:p.targets.map(function(id){return {clipId:id,properties:p.groups[id].properties.slice()};})};
+};
 E.getProjectScriptTargets=function(clip){
  if(!E.proj||E.proj.projectScriptEnabled!==true||!clip)return [];
  try{var p=projectProgramFor(),g=p.groups[clip.id];return g?g.properties.slice():[];}catch(e){return [];}
@@ -237,15 +242,16 @@ function sceneByRef(ref){
  }
  return null;
 }
-function sceneClips(scene){
- return E.proj.clips.filter(function(clip){
+function sceneClips(scene,projectOverride){
+ var project=projectOverride||E.proj;
+ return (project.clips||[]).filter(function(clip){
   return clip.sceneId===scene.id||(!clip.sceneId&&clip.sceneAlias&&String(clip.sceneAlias).toLowerCase()===String(scene.alias||'').toLowerCase());
  });
 }
-function parseSceneProgram(scene,source){
+function parseSceneProgram(scene,source,projectOverride){
  if(typeof source!=='string')throw new TypeError('Scene script must be text.');
  if(source.length>8192)throw new SyntaxError('Scene scripts are limited to 8,192 characters.');
- var duration=Math.max(0,Number(scene.duration)||0),members=sceneClips(scene),lines=source.split(/\r?\n/),groups=Object.create(null),total=0,order=0;
+ var duration=Math.max(0,Number(scene.duration)||0),members=sceneClips(scene,projectOverride||E.proj),lines=source.split(/\r?\n/),groups=Object.create(null),total=0,order=0;
  for(var i=0;i<lines.length;i++){
   var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
   var timed=line.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+clip\s+([a-z0-9_-]+)\s+(.+)$/i),plain=line.match(/^clip\s+([a-z0-9_-]+)\s+(.+)$/i);
@@ -291,6 +297,11 @@ E.compileSceneScript=function(sceneRef,source){
  var p=parseSceneProgram(scene,String(source==null?'':source));
  return {statements:p.statements,targets:p.targets.slice(),properties:p.targets.map(function(id){return {clipId:id,properties:p.groups[id].properties.slice()};})};
 };
+E.compileSceneScriptFor=function(scene,source,project){
+ if(!scene)throw new Error('Choose a scene in the project first.');
+ var p=parseSceneProgram(scene,String(source==null?'':source),project||E.proj);
+ return {statements:p.statements,targets:p.targets.slice(),properties:p.targets.map(function(id){return {clipId:id,properties:p.groups[id].properties.slice()};})};
+};
 E.getSceneScriptTargets=function(clip){
  if(!clip||!E.proj)return [];
  var scene=sceneByRef(clip.sceneId||clip.sceneAlias);if(!scene||scene.scriptEnabled!==true||!String(scene.scriptCode||'').trim())return [];
@@ -324,6 +335,75 @@ E.getSceneScriptError=function(sceneRef){
  var source=String(scene.scriptCode||''),old=SCENE_CACHE.get(scene),key=sceneKey(scene,source);
  return old&&old.key===key?old.error:'';
 };
+
+
+/* Unified project document: one versioned source owns scene layout and every SnipScript layer. */
+function unifiedMediaId(ref){
+ if(E.media&&E.media[ref])return ref;
+ var ids=E.mediaList&&E.mediaList.length?E.mediaList:Object.keys(E.media||{}),matches=ids.filter(function(id){return E.media[id]&&String(E.media[id].name||'').toLowerCase()===String(ref||'').toLowerCase();});
+ return matches.length===1?matches[0]:null;
+}
+function unifiedCandidate(raw,summary){
+ var project=E.clone(E.proj),sceneByAlias=Object.create(null),rawClipByAlias=Object.create(null);
+ if(!Array.isArray(project.scenes))project.scenes=[];
+ (raw.scenes||[]).forEach(function(scene){(scene.clips||[]).forEach(function(clip){rawClipByAlias[String(clip.alias||'').toLowerCase()]=clip;});});
+ (summary.scenes||[]).forEach(function(def){
+  var key=String(def.alias).toLowerCase(),scene=project.scenes.find(function(item){return String(item.alias||'').toLowerCase()===key;});
+  if(!scene)scene={id:'__unified_scene_'+key,alias:def.alias};
+  scene.alias=def.alias;scene.name=def.name;scene.start=def.start;scene.duration=def.duration;
+  var source=(raw.scenes||[]).find(function(item){return String(item.alias||'').toLowerCase()===key;});
+  if(source&&Object.prototype.hasOwnProperty.call(source,'script')){scene.scriptCode=source.script;scene.scriptEnabled=!!String(source.script).trim();}
+  var ix=project.scenes.findIndex(function(item){return item.id===scene.id;});
+  if(ix<0)project.scenes.push(scene);else project.scenes[ix]=scene;
+  sceneByAlias[key]=scene;
+ });
+ (summary.items||[]).forEach(function(def){
+  var key=String(def.alias).toLowerCase(),source=rawClipByAlias[key],clip=project.clips.find(function(item){return String(item.scriptAlias||'').toLowerCase()===key;});
+  if(!source)throw new Error('Missing source definition for clip "'+def.alias+'".');
+  if(!clip){clip=E.newClip(def.kind,{dur:def.duration});clip.id='__unified_clip_'+key;}
+  clip.kind=def.kind;clip.scriptAlias=def.alias;clip.start=def.start;clip.dur=def.duration;
+  clip.name=source.name||source.content||def.alias;
+  if(source.media!=null){var mediaId=unifiedMediaId(source.media);if(!mediaId)throw new Error('Media "'+source.media+'" could not be resolved for script validation.');clip.media=mediaId;}
+  if(def.kind==='text'&&source.content!=null){if(!clip.text)clip.text=E.defText();clip.text.str=source.content;}
+  if(def.scene){var scene=sceneByAlias[String(def.scene).toLowerCase()];clip.sceneAlias=def.scene;clip.sceneId=scene&&scene.id;}
+  if(Object.prototype.hasOwnProperty.call(source,'script')){clip.scriptCode=source.script;clip.scriptEnabled=!!String(source.script).trim();}
+  var ix=project.clips.findIndex(function(item){return item.id===clip.id;});
+  if(ix<0)project.clips.push(clip);else project.clips[ix]=clip;
+ });
+ return project;
+}
+E.compileUnifiedProject=function(input){
+ var source;
+ try{source=typeof input==='string'?input:JSON.stringify(input);}catch(e){throw new SyntaxError('The unified project must be valid JSON data.');}
+ if(!source||source.length>100000)throw new SyntaxError('Keep the unified project under 100 KB.');
+ var raw;try{raw=JSON.parse(source);}catch(e2){throw new SyntaxError('Invalid unified project JSON: '+(e2.message||String(e2)));}
+ if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.version!==3)throw new SyntaxError('A unified project must use version: 3.');
+ var summary=E.previewProjectPlan(raw),candidate=unifiedCandidate(raw,summary),clipStatements=0,sceneStatements=0,projectStatements=0;
+ (raw.scenes||[]).forEach(function(sceneDef){
+  (sceneDef.clips||[]).forEach(function(clipDef){
+   if(Object.prototype.hasOwnProperty.call(clipDef,'script')){
+    var clip=candidate.clips.find(function(item){return String(item.scriptAlias||'').toLowerCase()===String(clipDef.alias).toLowerCase();});
+    clipStatements+=E.compileScript(clip,clipDef.script).statements;
+   }
+  });
+  if(Object.prototype.hasOwnProperty.call(sceneDef,'script')){
+   var scene=candidate.scenes.find(function(item){return String(item.alias||'').toLowerCase()===String(sceneDef.alias).toLowerCase();});
+   sceneStatements+=E.compileSceneScriptFor(scene,sceneDef.script,candidate).statements;
+  }
+ });
+ if(Object.prototype.hasOwnProperty.call(raw,'script'))projectStatements=E.compileProjectScriptFor(raw.script,candidate).statements;
+ summary.clipScriptStatements=clipStatements;summary.sceneScriptStatements=sceneStatements;summary.projectScriptStatements=projectStatements;
+ summary.scriptStatements=clipStatements+sceneStatements+projectStatements;
+ return summary;
+};
+E.applyUnifiedProject=function(input){
+ var source=typeof input==='string'?input:JSON.stringify(input),check=E.compileUnifiedProject(source),raw=JSON.parse(source);
+ var applied=E.applyProjectPlan(raw,source);
+ applied.clipScriptStatements=check.clipScriptStatements;applied.sceneScriptStatements=check.sceneScriptStatements;
+ applied.projectScriptStatements=check.projectScriptStatements;applied.scriptStatements=check.scriptStatements;
+ return applied;
+};
+
 
 /* Timeline cue API. Cues are keyed by source line so marker drags edit the script itself. */
 E.listClipScriptCues=function(clip){

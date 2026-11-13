@@ -12,6 +12,7 @@ const sandbox = {
 };
 vm.runInNewContext(fs.readFileSync('src/e_core.js', 'utf8'), sandbox);
 vm.runInNewContext(fs.readFileSync('src/e_props.js', 'utf8'), sandbox);
+vm.runInNewContext(fs.readFileSync('src/e_script.js', 'utf8'), sandbox);
 const E = sandbox.window.__snip.E;
 
 E.media = {
@@ -267,5 +268,63 @@ rejectsWithoutMutation({
   tracks: [],
   scenes: [{ alias: 'empty-scene', name: 'Empty', start: 0, duration: 2, clips: [] }]
 }, /must contain at least one clip/);
+
+
+/* Unified version 3 documents validate and apply structure plus all animation layers together. */
+E.newProject('16:9');
+const unifiedPlan = {
+  version: 3,
+  tracks: [{ name: 'Unified Visuals', kind: 'video' }],
+  script: 'clip unified-title set transform.opacity = 0.85',
+  scenes: [{
+    alias: 'unified-intro', name: 'Unified Intro', start: 0, duration: 3,
+    script: 'clip unified-title set transform.y = sin(time) * 0.1',
+    clips: [{
+      alias: 'unified-title', type: 'text', content: 'Unified',
+      track: 'Unified Visuals', start: 0, duration: 3,
+      script: 'at 0s set transform.scale = 0.5\nat 1s tween transform.scale = 1 over 1s ease out'
+    }]
+  }]
+};
+const beforeUnifiedPreview = JSON.stringify(E.proj);
+const unifiedCheck = E.compileUnifiedProject(unifiedPlan);
+assert.equal(JSON.stringify(E.proj), beforeUnifiedPreview, 'Unified validation must not mutate the project.');
+assert.equal(unifiedCheck.scenes.length, 1);
+assert.equal(unifiedCheck.items.length, 1);
+assert.equal(unifiedCheck.clipScriptStatements, 2);
+assert.equal(unifiedCheck.sceneScriptStatements, 1);
+assert.equal(unifiedCheck.projectScriptStatements, 1);
+assert.equal(unifiedCheck.scriptStatements, 4);
+const unifiedApply = E.applyUnifiedProject(unifiedPlan);
+assert.equal(E.proj.clips.length, 1);
+assert.equal(E.proj.scenes.length, 1);
+assert.equal(E.proj.projectBundleCode, JSON.stringify(unifiedPlan));
+assert.equal(E.proj.projectScriptEnabled, true);
+const unifiedClip = E.proj.clips.find(clip => clip.scriptAlias === 'unified-title');
+const unifiedScene = E.proj.scenes.find(scene => scene.alias === 'unified-intro');
+assert.equal(unifiedClip.scriptEnabled, true);
+assert.equal(unifiedScene.scriptEnabled, true);
+assert.equal(unifiedApply.scriptStatements, 4);
+let unifiedFrame = E.runClipScriptFrame(unifiedClip, 0);
+assert.equal(unifiedFrame.transform.scale, 0.5);
+unifiedFrame = E.runClipScriptFrame(unifiedClip, 2);
+assert(Math.abs(unifiedFrame.transform.scale - 1) < 1e-9);
+unifiedFrame = E.runSceneScriptFrame(unifiedScene, unifiedClip, 1);
+assert(Math.abs(unifiedFrame.transform.y - Math.sin(1) * 0.1) < 1e-9);
+unifiedFrame = E.runProjectScriptFrame(unifiedClip, 1);
+assert.equal(unifiedFrame.transform.opacity, 0.85);
+assert.equal(E.canUndo(), true);
+E.undo();
+assert.equal(E.proj.clips.length, 0, 'A unified project apply must be a single undo step.');
+assert.equal(E.proj.scenes.length, 0);
+assert.equal(E.proj.projectBundleCode, undefined);
+
+const badUnified = JSON.parse(JSON.stringify(unifiedPlan));
+badUnified.script = 'clip not-a-real-clip set transform.x = 1';
+const beforeBadUnified = JSON.stringify(E.proj);
+assert.throws(() => E.compileUnifiedProject(badUnified), /Unknown clip target/);
+assert.equal(JSON.stringify(E.proj), beforeBadUnified, 'Invalid scripts must not mutate the project.');
+assert.throws(() => E.applyUnifiedProject(badUnified), /Unknown clip target/);
+assert.equal(JSON.stringify(E.proj), beforeBadUnified, 'Failed unified apply must leave the project unchanged.');
 
 console.log('Script-driven project plan validation, preview, apply, aliases and undo tests passed.');
