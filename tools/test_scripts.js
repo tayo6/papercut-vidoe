@@ -27,6 +27,23 @@ assert(E.easeProgress('back-out',0.5)>1,'Back easing should allow a controlled o
   assert(Number.isFinite(E.easeProgress(name,0.4)),name+' should be finite');
  });
 });
+
+
+const standardBezier={x1:0.25,y1:0.1,x2:0.25,y2:1};
+assert(Math.abs(E.cubicBezierProgress(standardBezier,0.5)-0.8024024)<1e-5);
+for(let sample=0;sample<=20;sample++){
+ const time=sample/20, value=E.cubicBezierProgress(standardBezier,time);
+ assert(value>=0&&value<=1,`Bezier output should stay in range at ${time}`);
+ if(sample>0)assert(value>=E.cubicBezierProgress(standardBezier,(sample-1)/20),`Standard easing should be monotonic at ${time}`);
+}
+assert.strictEqual(E.cubicBezierProgress(standardBezier,0),0);
+assert.strictEqual(E.cubicBezierProgress(standardBezier,1),1);
+assert.throws(()=>E.cubicBezierProgress({x1:1.2,y1:0,x2:0.2,y2:1},0.5),/outside the supported range/);
+const base={'transform.x':0,'transform.y':0,'transform.scale':1,'transform.rotation':0,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':0,'audio.fadeOut':0,'text.fontSize':120,'text.color':'#ffffff','paper.enabled':false,'paper.edge':14,'paper.roughness':45,'paper.detail':55,'paper.grain':40,'paper.color':'#000000','paper.boil':0,'paper.boilFps':8,'paper.boilLoop':3,'paper.shadow':20,'paper.shadowBlur':14};
+const clip={id:'c1',kind:'video',dur:4,values:Object.assign({},base),scriptEnabled:true,scriptCode:'set transform.y = sin(time * 2) * 0.04\nset transform.opacity = clamp(1 - progress, 0, 1)'};
+let c=E.compileScript(clip,clip.scriptCode);assert.strictEqual(c.statements,2);assert.strictEqual(c.events,0);
+let f=E.runClipScriptFrame(clip,0);assert(Math.abs(f.transform.y)<1e-9);assert.strictEqual(f.transform.opacity,1);
+f=E.runClipScriptFrame(clip,2);assert(Math.abs(f.transform.y-Math.sin(4)*0.04)<1e-9);assert.strictEqual(f.transform.opacity,0.5);
 const mathClip=Object.assign({},clip,{scriptCode:[
  'set transform.x = fract(-1.25)',
  'set transform.y = smootherstep(0, 1, 0.5)',
@@ -61,22 +78,6 @@ assert(/period greater than zero/.test(E.getClipScriptError(badRange)));
 const namedTween=Object.assign({},clip,{scriptCode:'at 0s tween transform.scale = 2 over 1s ease bounce-out'});
 assert.strictEqual(E.compileScript(namedTween,namedTween.scriptCode).events,1);
 assert(Math.abs(E.runClipScriptFrame(namedTween,0.5).transform.scale-1.765625)<1e-9);
-
-const standardBezier={x1:0.25,y1:0.1,x2:0.25,y2:1};
-assert(Math.abs(E.cubicBezierProgress(standardBezier,0.5)-0.8024024)<1e-5);
-for(let sample=0;sample<=20;sample++){
- const time=sample/20, value=E.cubicBezierProgress(standardBezier,time);
- assert(value>=0&&value<=1,`Bezier output should stay in range at ${time}`);
- if(sample>0)assert(value>=E.cubicBezierProgress(standardBezier,(sample-1)/20),`Standard easing should be monotonic at ${time}`);
-}
-assert.strictEqual(E.cubicBezierProgress(standardBezier,0),0);
-assert.strictEqual(E.cubicBezierProgress(standardBezier,1),1);
-assert.throws(()=>E.cubicBezierProgress({x1:1.2,y1:0,x2:0.2,y2:1},0.5),/outside the supported range/);
-const base={'transform.x':0,'transform.y':0,'transform.scale':1,'transform.rotation':0,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':0,'audio.fadeOut':0,'text.fontSize':120,'text.color':'#ffffff','paper.enabled':false,'paper.edge':14,'paper.roughness':45,'paper.detail':55,'paper.grain':40,'paper.color':'#000000','paper.boil':0,'paper.boilFps':8,'paper.boilLoop':3,'paper.shadow':20,'paper.shadowBlur':14};
-const clip={id:'c1',kind:'video',dur:4,values:Object.assign({},base),scriptEnabled:true,scriptCode:'set transform.y = sin(time * 2) * 0.04\nset transform.opacity = clamp(1 - progress, 0, 1)'};
-let c=E.compileScript(clip,clip.scriptCode);assert.strictEqual(c.statements,2);assert.strictEqual(c.events,0);
-let f=E.runClipScriptFrame(clip,0);assert(Math.abs(f.transform.y)<1e-9);assert.strictEqual(f.transform.opacity,1);
-f=E.runClipScriptFrame(clip,2);assert(Math.abs(f.transform.y-Math.sin(4)*0.04)<1e-9);assert.strictEqual(f.transform.opacity,0.5);
 const cues=Object.assign({},clip,{scriptCode:'at 0s set transform.scale = 0.5\nat 1s tween transform.scale = 1 over 1s ease out'});
 assert.strictEqual(E.compileScript(cues,cues.scriptCode).events,2);assert.strictEqual(E.runClipScriptFrame(cues,0.5).transform.scale,0.5);
 const movedCues=Object.assign({},cues,{scriptCode:cues.scriptCode});
