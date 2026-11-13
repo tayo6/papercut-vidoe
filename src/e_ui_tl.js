@@ -126,12 +126,31 @@ function buildRuler() {
 }
 function scrubTo(e) { E.seek(snapAt(Math.max(0, timeAt(e.clientX)), null, true)); }
 
+function buildSceneRail() {
+  var rail = h('div', { class: 'tl-scenes' });
+  var head = h('div', { class: 'tl-head tl-scenes-head', text: 'Scenes' });
+  var lane = h('div', { class: 'tl-scene-lane', style: { width: W + 'px' } });
+  (E.proj.scenes || []).slice().sort(function (a, b) { return a.start - b.start; }).forEach(function (scene) {
+    var button = h('button', {
+      class: 'tl-scene-block',
+      type: 'button',
+      text: scene.name || scene.alias || 'Scene',
+      title: (scene.name || scene.alias || 'Scene') + ' · ' + E.fmtS(scene.start) + ' to ' + E.fmtS(scene.start + scene.duration),
+      style: { left: (scene.start * pps) + 'px', width: Math.max(28, scene.duration * pps) + 'px' },
+      onclick: function () { E.pause(); E.select(null); E.seek(scene.start); }
+    });
+    lane.appendChild(button);
+  });
+  rail.appendChild(head); rail.appendChild(lane); return rail;
+}
+
 function build() {
   var sl = scroll.scrollLeft, st = scroll.scrollTop;
   drag = null; scrub = null; clipEls = {}; rowEls = {}; laneEls = {}; guideEl = ghostEl = newEl = null;
   var vw = scroll.clientWidth - HEAD, total = Math.max(E.end() + 10, vw / pps + 1, 24); W = Math.ceil(total * pps);
   inner.textContent = ''; inner.style.width = (HEAD + W) + 'px'; inner.style.setProperty('--head', HEAD + 'px');
   inner.appendChild(buildRuler());
+  if ((E.proj.scenes || []).length) inner.appendChild(buildSceneRail());
   E.proj.rows.forEach(function (r) { inner.appendChild(buildRow(r)); });
   phEl = h('div', { class: 'tl-ph' }, [h('i')]); inner.appendChild(phEl);
   if (!E.hasContent()) { var vr = E.proj.rows.filter(function (r) { return r.kind === 'v'; }).pop(); if (vr && laneEls[vr.id]) laneEls[vr.id].appendChild(h('div', { class: 'tl-hint', text: 'Drag media here, or click an item in the library' })); }

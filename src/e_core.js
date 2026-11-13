@@ -40,7 +40,7 @@ E.rowKind = function (clip) { return clip.kind === 'audio' ? 'a' : 'v'; };
 E.newProject = function (ratio) {
   ratio = E.RATIOS[ratio] ? ratio : '16:9';
   var d = E.RATIOS[ratio];
-  E.proj = { name: 'Untitled', ratio: ratio, w: d[0], h: d[1], bg: { type: 'color', color: '#111111' }, rows: [], clips: [], scriptPresets: [], motionPresets: [] };
+  E.proj = { name: 'Untitled', ratio: ratio, w: d[0], h: d[1], bg: { type: 'color', color: '#111111' }, rows: [], clips: [], scenes: [], scriptPresets: [], motionPresets: [] };
   E.proj.rows.push({ id: E.uid('r'), kind: 'v', hide: false, mute: false }, { id: E.uid('r'), kind: 'a', hide: false, mute: false });
   E.t = 0; E.sel = null; E.playing = false;
   E.resetHistory(); E.emit('project'); E.emit('sel'); E.dirty();
@@ -515,8 +515,56 @@ function prepareProjectPlan(input) {
   try { raw = JSON.parse(source); }
   catch (err2) { planFail('Invalid JSON: ' + (err2.message || String(err2))); }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) planFail('The root must be a JSON object.');
+  if (!E.proj) planFail('Open a project first.');
+  var planVersion = raw.version, sceneDefs = [], sceneMap = Object.create(null);
+  if (planVersion === 2) {
+    planKeys(raw, ['version', 'tracks', 'scenes'], 'plan');
+    if (!Array.isArray(raw.scenes) || !raw.scenes.length || raw.scenes.length > 50) planFail('version 2 plans need between 1 and 50 scenes.');
+    var sceneAliases = Object.create(null), existingScenes = Object.create(null), flattened = [], clipTotal = 0;
+    (E.proj.scenes || []).forEach(function (scene) {
+      if (!scene.alias) return;
+      var key = String(scene.alias).toLowerCase();
+      if (existingScenes[key]) planFail('The project already has duplicate scene alias "' + scene.alias + '".');
+      existingScenes[key] = scene;
+    });
+    raw.scenes.forEach(function (scene, index) {
+      var label = 'Scene ' + (index + 1);
+      if (!scene || typeof scene !== 'object' || Array.isArray(scene)) planFail(label + ' must be an object.');
+      planKeys(scene, ['alias', 'name', 'start', 'duration', 'clips'], 'scene');
+      var alias = planString(scene.alias, label + ' alias', 40, true);
+      if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias) || /^c[0-9]+$/i.test(alias)) planFail(label + ' alias must be a descriptive name beginning with a letter.');
+      var key = alias.toLowerCase();
+      if (sceneAliases[key]) planFail('Scene aliases must be unique: "' + alias + '".');
+      sceneAliases[key] = true;
+      var name = scene.name == null ? alias : planString(scene.name, label + ' name', 60, true);
+      var start = planNumber(scene.start, label + ' start', 0, 86400);
+      var duration = planNumber(scene.duration, label + ' duration', E.MIN, 86400);
+      if (start + duration > 86400) planFail(label + ' must end by 86400 seconds.');
+      if (!Array.isArray(scene.clips) || !scene.clips.length) planFail(label + ' must contain at least one clip.');
+      clipTotal += scene.clips.length;
+      if (clipTotal > 100) planFail('A scene plan can contain no more than 100 clips.');
+      var current = existingScenes[key] || null;
+      var def = { alias: alias, key: key, name: name, start: start, duration: duration, existingId: current ? current.id : null, action: current ? 'update' : 'create' };
+      sceneDefs.push(def); sceneMap[key] = def;
+      scene.clips.forEach(function (clip) {
+        if (!clip || typeof clip !== 'object' || Array.isArray(clip)) planFail(label + ' contains an invalid clip.');
+        var offset = clip.start == null ? 0 : planNumber(clip.start, 'Clip "' + (clip.alias || '') + '" scene offset', 0, duration);
+        var copy = Object.assign({}, clip);
+        copy.start = start + offset;
+        copy.sceneAlias = alias;
+        copy.sceneOffset = offset;
+        flattened.push(copy);
+      });
+    });
+    raw = { version: 1, tracks: raw.tracks, clips: flattened };
+  } else if (planVersion !== 1) {
+    planFail('Use version: 1 for a flat clip plan or version: 2 for a scene plan.');
+  }
   planKeys(raw, ['version', 'tracks', 'clips'], 'plan');
-  if (raw.version !== 1) planFail('Use version: 1.');
+  var trackInput = raw.tracks == null ? [] : raw.tracks;
+  var clipInput = raw.clips;
+  if (!Array.isArray(trackInput) || trackInput.length > 24) planFail('tracks must be an array of no more than 24 entries.');
+  if (!Array.isArray(clipInput) || !clipInput.length || clipInput.length > 100) planFail('clips must contain between 1 and 100 entries.');
   var trackInput = raw.tracks == null ? [] : raw.tracks;
   var clipInput = raw.clips;
   if (!Array.isArray(trackInput) || trackInput.length > 24) planFail('tracks must be an array of no more than 24 entries.');
@@ -576,12 +624,15 @@ function prepareProjectPlan(input) {
   clipInput.forEach(function (item, index) {
     var label = 'Clip ' + (index + 1);
     if (!item || typeof item !== 'object' || Array.isArray(item)) planFail(label + ' must be an object.');
-    planKeys(item, ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties'], 'clip');
+    planKeys(item, ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties', 'sceneAlias', 'sceneOffset'], 'clip');
     var alias = planString(item.alias, label + ' alias', 40, true);
     if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias)) planFail(label + ' alias must start with a letter and contain only letters, numbers, "_" or "-".');
     if (/^c[0-9]+$/i.test(alias)) planFail(label + ' alias cannot look like an automatically generated clip ID. Use a descriptive name instead.');
     var aliasKey = alias.toLowerCase();
     if (aliases[aliasKey]) planFail('Clip aliases must be unique: "' + alias + '".');
+    var sceneAlias = item.sceneAlias == null ? '' : planString(item.sceneAlias, label + ' scene alias', 40, true);
+    var sceneOffset = item.sceneOffset == null ? null : planNumber(item.sceneOffset, label + ' scene offset', 0, 86400);
+    if (sceneAlias && !sceneMap[sceneAlias.toLowerCase()]) planFail(label + ' refers to an unknown scene alias "' + sceneAlias + '".');
     aliases[aliasKey] = true;
 
     var mediaRef = null, media = null, kind;
@@ -655,8 +706,14 @@ function prepareProjectPlan(input) {
       alias: alias, aliasKey: aliasKey, kind: kind, mediaId: mediaRef, mediaName: media ? media.name : '',
       content: textContent, name: name, rowId: rowId, rowKey: rowKey, trackName: rowLabel,
       start: start, duration: duration, properties: properties, existingId: existing ? existing.id : null,
-      action: existing ? 'update' : 'create'
+      sceneAlias: sceneAlias, sceneOffset: sceneOffset, action: existing ? 'update' : 'create'
     };
+    if (sceneAlias) {
+      var sceneDef = sceneMap[sceneAlias.toLowerCase()];
+      if (start < sceneDef.start - 1e-6 || start + duration > sceneDef.start + sceneDef.duration + 1e-6) {
+        planFail('Clip "' + alias + '" must fit inside scene "' + sceneDef.name + '". Check its local start and duration.');
+      }
+    }
     clipDefs.push(clip);
   });
 
@@ -675,16 +732,19 @@ function prepareProjectPlan(input) {
   });
 
   return {
-    source: source, trackDefs: trackDefs, clips: clipDefs,
+    source: source, planVersion: planVersion, trackDefs: trackDefs, clips: clipDefs, scenes: sceneDefs,
     summary: {
-      version: 1,
+      version: planVersion,
+      scenesToCreate: sceneDefs.filter(function (scene) { return scene.action === 'create'; }).length,
+      scenesToUpdate: sceneDefs.filter(function (scene) { return scene.action === 'update'; }).length,
+      scenes: sceneDefs.map(function (scene) { return { alias: scene.alias, name: scene.name, start: scene.start, duration: scene.duration, action: scene.action }; }),
       tracksToCreate: trackDefs.filter(function (track) { return track.isNew; }).length,
       tracksToReuse: trackDefs.filter(function (track) { return !track.isNew; }).length,
       clipsToCreate: clipDefs.filter(function (clip) { return clip.action === 'create'; }).length,
       clipsToUpdate: clipDefs.filter(function (clip) { return clip.action === 'update'; }).length,
-      timelineEnd: clipDefs.reduce(function (end, clip) { return Math.max(end, clip.start + clip.duration); }, E.end()),
+      timelineEnd: Math.max(clipDefs.reduce(function (end, clip) { return Math.max(end, clip.start + clip.duration); }, E.end()), sceneDefs.reduce(function (end, scene) { return Math.max(end, scene.start + scene.duration); }, 0)),
       items: clipDefs.map(function (clip) {
-        return { alias: clip.alias, kind: clip.kind, mediaName: clip.mediaName, track: clip.trackName, start: clip.start, duration: clip.duration, action: clip.action, clipId: clip.existingId };
+        return { alias: clip.alias, kind: clip.kind, mediaName: clip.mediaName, track: clip.trackName, start: clip.start, duration: clip.duration, scene: clip.sceneAlias || null, action: clip.action, clipId: clip.existingId };
       }),
       tracks: trackDefs.map(function (track) { return { name: track.name, kind: track.kind === 'a' ? 'audio' : 'video', action: track.isNew ? 'create' : 'reuse' }; })
     }
@@ -694,10 +754,21 @@ E.previewProjectPlan = function (plan) {
   return E.clone(prepareProjectPlan(plan).summary);
 };
 E.applyProjectPlan = function (plan, sourceText) {
-  var prepared = prepareProjectPlan(plan), before = E.proj, previousSelection = E.sel, selected = E.sel, trackIds = Object.create(null);
+  var prepared = prepareProjectPlan(plan), before = E.proj, previousSelection = E.sel, selected = E.sel, trackIds = Object.create(null), sceneIds = Object.create(null);
   try {
     E.proj = clone(E.proj);
+    if (!Array.isArray(E.proj.scenes)) E.proj.scenes = [];
     E.proj.rows.forEach(function (row) { if (row.scriptName) trackIds[String(row.scriptName).toLowerCase()] = row.id; });
+    prepared.scenes.forEach(function (item) {
+      var scene = E.proj.scenes.find(function (current) { return String(current.alias || '').toLowerCase() === item.key; });
+      if (!scene) {
+        scene = { id: E.uid('sc'), alias: item.alias, name: item.name, start: item.start, duration: item.duration, scriptManaged: true };
+        E.proj.scenes.push(scene);
+      } else {
+        scene.alias = item.alias; scene.name = item.name; scene.start = item.start; scene.duration = item.duration;
+      }
+      sceneIds[item.key] = scene.id;
+    });
     prepared.trackDefs.forEach(function (track) {
       var id = track.rowId || trackIds[track.key];
       if (!id) {
@@ -719,6 +790,7 @@ E.applyProjectPlan = function (plan, sourceText) {
         E.proj.clips.push(clip);
       }
       clip.scriptAlias = item.alias;
+      if (item.sceneAlias) { clip.sceneAlias = item.sceneAlias; clip.sceneId = sceneIds[item.sceneAlias.toLowerCase()]; }
       clip.name = item.name || clip.name;
       clip.start = item.start;
       clip.dur = item.duration;
@@ -727,7 +799,7 @@ E.applyProjectPlan = function (plan, sourceText) {
       Object.keys(item.properties).forEach(function (property) {
         E.setProperty(clip, property, item.properties[property], { base: true });
       });
-      selected = clip.id;
+      /* Keep the current inspector selection; scene plans should leave the Project panel open. */
     });
     var savedSource = typeof sourceText === 'string' ? sourceText : prepared.source;
     if (savedSource.length <= 100000) E.proj.projectPlanCode = savedSource;
