@@ -397,14 +397,24 @@ $('emDemo').addEventListener('click', function () { U.demo(); });
 /* ---------- panels on phones ---------- */
 function updateBarState() {
   var s = $('ed').getAttribute('data-sheet') || '';
+  var projectTab = !!(U.insp && U.insp.isProjectTab && U.insp.isProjectTab());
   Array.prototype.forEach.call($('edBar').querySelectorAll('button'), function (b) {
-    var n = b.getAttribute('data-bar'); b.setAttribute('aria-pressed', String((s === 'insp' && n === 'insp') || (s === 'lib' && n === libTab)));
+    var n = b.getAttribute('data-bar');
+    var active = (s === 'insp' && n === 'insp' && !projectTab) ||
+      (s === 'insp' && n === 'project' && projectTab) ||
+      (s === 'lib' && n === libTab);
+    b.setAttribute('aria-pressed', String(active));
   });
 }
 U.sheet = function (n) {
-  var ed = $('ed'), cur = ed.getAttribute('data-sheet') || '', want = n === 'insp' ? 'insp' : n ? 'lib' : '';
-  if (!n || (cur === want && (want === 'insp' || n === libTab))) ed.removeAttribute('data-sheet');
-  else { ed.setAttribute('data-sheet', want); if (want === 'lib') U.libTab(n); }
+  var ed = $('ed'), cur = ed.getAttribute('data-sheet') || '', isProject = n === 'project';
+  var want = n === 'insp' || isProject ? 'insp' : n ? 'lib' : '';
+  if (!n || (!isProject && cur === want && (want === 'insp' || n === libTab))) ed.removeAttribute('data-sheet');
+  else {
+    ed.setAttribute('data-sheet', want);
+    if (want === 'lib') U.libTab(n);
+    if (isProject && U.insp && U.insp.showProject) U.insp.showProject();
+  }
   updateBarState(); setTimeout(U.fit, 30);
 };
 Array.prototype.forEach.call($('edBar').querySelectorAll('button'), function (b) { b.addEventListener('click', function () { U.sheet(b.getAttribute('data-bar')); }); });
