@@ -485,6 +485,263 @@ E.redo = function () { if (!H.redo.length) return; H.undo.push(H.cur); restore(H
 E.canUndo = function () { return H.undo.length > 0; };
 E.canRedo = function () { return H.redo.length > 0; };
 
+
+/* ---------- script-driven project plans ---------- */
+function planFail(message) { throw new Error('Project plan: ' + message); }
+function planString(value, label, max, required) {
+  if (value == null && !required) return '';
+  if (typeof value !== 'string') planFail(label + ' must be text.');
+  var s = value.trim();
+  if (required && !s) planFail(label + ' is required.');
+  if (s.length > max) planFail(label + ' is too long (maximum ' + max + ' characters).');
+  return s;
+}
+function planNumber(value, label, min, max) {
+  if (typeof value !== 'number' || !isFinite(value)) planFail(label + ' must be a finite number.');
+  if (value < min || value > max) planFail(label + ' must be between ' + min + ' and ' + max + '.');
+  return value;
+}
+function planKeys(object, allowed, label) {
+  Object.keys(object).forEach(function (key) {
+    if (allowed.indexOf(key) < 0) planFail('Unknown ' + label + ' field "' + key + '".');
+  });
+}
+function prepareProjectPlan(input) {
+  var source;
+  try { source = typeof input === 'string' ? input : JSON.stringify(input); }
+  catch (err) { planFail('The plan must be valid JSON data.'); }
+  if (!source || source.length > 100000) planFail('Keep the plan under 100 KB.');
+  var raw;
+  try { raw = JSON.parse(source); }
+  catch (err2) { planFail('Invalid JSON: ' + (err2.message || String(err2))); }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) planFail('The root must be a JSON object.');
+  planKeys(raw, ['version', 'tracks', 'clips'], 'plan');
+  if (raw.version !== 1) planFail('Use version: 1.');
+  var trackInput = raw.tracks == null ? [] : raw.tracks;
+  var clipInput = raw.clips;
+  if (!Array.isArray(trackInput) || trackInput.length > 24) planFail('tracks must be an array of no more than 24 entries.');
+  if (!Array.isArray(clipInput) || !clipInput.length || clipInput.length > 100) planFail('clips must contain between 1 and 100 entries.');
+  if (!E.proj) planFail('Open a project first.');
+
+  var namedRows = Object.create(null), trackDefs = [], trackNames = Object.create(null);
+  E.proj.rows.forEach(function (row) {
+    if (!row.scriptName) return;
+    var key = String(row.scriptName).toLowerCase();
+    if (namedRows[key]) planFail('The project already has more than one track named "' + row.scriptName + '".');
+    namedRows[key] = row;
+  });
+  trackInput.forEach(function (item, index) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) planFail('Track ' + (index + 1) + ' must be an object.');
+    planKeys(item, ['name', 'kind'], 'track');
+    var name = planString(item.name, 'Track ' + (index + 1) + ' name', 48, true);
+    var kind = item.kind === 'audio' ? 'a' : item.kind === 'video' ? 'v' : null;
+    if (!kind) planFail('Track "' + name + '" kind must be "video" or "audio".');
+    var key = name.toLowerCase();
+    if (trackNames[key]) planFail('Track names must be unique: "' + name + '".');
+    trackNames[key] = true;
+    var existing = namedRows[key] || null;
+    if (existing && existing.kind !== kind) planFail('Track "' + name + '" already exists with a different kind.');
+    trackDefs.push({ name: name, key: key, kind: kind, rowId: existing ? existing.id : null, isNew: !existing });
+  });
+
+  var existingAliases = Object.create(null);
+  E.proj.clips.forEach(function (clip) {
+    if (!clip.scriptAlias) return;
+    var key = String(clip.scriptAlias).toLowerCase();
+    if (existingAliases[key]) planFail('The project contains duplicate script alias "' + clip.scriptAlias + '".');
+    existingAliases[key] = clip;
+  });
+
+  function resolveMedia(ref) {
+    var id = E.media[ref] ? ref : null;
+    if (!id) {
+      var ids = E.mediaList && E.mediaList.length ? E.mediaList.slice() : Object.keys(E.media || {});
+      var matches = ids.filter(function (mediaId) {
+        var media = E.media[mediaId];
+        return media && String(media.name || '').toLowerCase() === ref.toLowerCase();
+      });
+      if (matches.length > 1) planFail('Media name "' + ref + '" is ambiguous. Use its Media ID instead.');
+      if (matches.length === 1) id = matches[0];
+    }
+    if (!id || !E.media[id]) planFail('Media "' + ref + '" is not imported. Import it first and use its Media ID or unique name.');
+    return { id: id, media: E.media[id] };
+  }
+  function defaultRow(kind) {
+    var rows = E.proj.rows.filter(function (row) { return row.kind === kind; });
+    if (!rows.length) planFail('The project has no ' + (kind === 'a' ? 'audio' : 'visual') + ' track.');
+    return kind === 'a' ? rows[0] : rows[rows.length - 1];
+  }
+
+  var clipDefs = [], aliases = Object.create(null), movingIds = Object.create(null);
+  clipInput.forEach(function (item, index) {
+    var label = 'Clip ' + (index + 1);
+    if (!item || typeof item !== 'object' || Array.isArray(item)) planFail(label + ' must be an object.');
+    planKeys(item, ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties'], 'clip');
+    var alias = planString(item.alias, label + ' alias', 40, true);
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias)) planFail(label + ' alias must start with a letter and contain only letters, numbers, "_" or "-".');
+    if (/^c[0-9]+$/i.test(alias)) planFail(label + ' alias cannot look like an automatically generated clip ID. Use a descriptive name instead.');
+    var aliasKey = alias.toLowerCase();
+    if (aliases[aliasKey]) planFail('Clip aliases must be unique: "' + alias + '".');
+    aliases[aliasKey] = true;
+
+    var mediaRef = null, media = null, kind;
+    if (item.media != null) {
+      if (item.type != null || item.content != null) planFail('A media clip cannot also declare type or content.');
+      mediaRef = planString(item.media, label + ' media', 200, true);
+      var resolved = resolveMedia(mediaRef); mediaRef = resolved.id; media = resolved.media; kind = media.kind;
+      if (['image', 'video', 'audio'].indexOf(kind) < 0) planFail('Media "' + mediaRef + '" has an unsupported kind.');
+    } else {
+      if (item.type !== 'text') planFail(label + ' needs a media reference or type: "text".');
+      kind = 'text';
+    }
+
+    var existing = existingAliases[aliasKey] || null;
+    if (existing) {
+      if (existing.kind !== kind) planFail('Alias "' + alias + '" already belongs to a different clip kind.');
+      if (mediaRef && existing.media !== mediaRef) planFail('Alias "' + alias + '" already belongs to different media. Use a new alias.');
+      if (!mediaRef && existing.kind !== 'text') planFail('Alias "' + alias + '" cannot be changed into a text clip.');
+      movingIds[existing.id] = true;
+    }
+
+    var laneKind = kind === 'audio' ? 'a' : 'v', trackName = item.track == null ? '' : planString(item.track, label + ' track', 48, true);
+    var rowId = null, rowKey = null, rowLabel = '';
+    if (trackName) {
+      var trackKey = trackName.toLowerCase(), definition = trackDefs.find(function (track) { return track.key === trackKey; });
+      var row = definition ? (definition.rowId ? E.rowById(definition.rowId) : null) : namedRows[trackKey];
+      if (!definition && !row) planFail(label + ' refers to unknown named track "' + trackName + '". Add it under tracks first.');
+      var expected = definition ? definition.kind : row.kind;
+      if (expected !== laneKind) planFail(label + ' cannot use "' + trackName + '"; its kind does not match this clip.');
+      if (row) { rowId = row.id; rowKey = 'row:' + row.id; rowLabel = row.scriptName || trackName; }
+      else { rowKey = 'new:' + trackKey; rowLabel = trackName; }
+    } else if (existing) {
+      var currentRow = E.rowById(existing.row);
+      if (!currentRow || currentRow.kind !== laneKind) planFail('Alias "' + alias + '" is assigned to a missing or incompatible track.');
+      rowId = currentRow.id; rowKey = 'row:' + rowId;
+      rowLabel = currentRow.scriptName || (laneKind === 'a' ? 'Audio track' : 'Video track');
+    } else {
+      var fallback = defaultRow(laneKind);
+      rowId = fallback.id; rowKey = 'row:' + rowId;
+      rowLabel = fallback.scriptName || (laneKind === 'a' ? 'Audio track' : 'Video track');
+    }
+
+    var start = item.start == null && existing ? existing.start : planNumber(item.start, label + ' start', 0, 86400);
+    var naturalDuration = kind === 'text' ? 3 : kind === 'image' ? (media.defDur || 4) : (media.dur || 4);
+    var duration = item.duration == null && existing ? existing.dur : item.duration == null ? naturalDuration : planNumber(item.duration, label + ' duration', E.MIN, 86400);
+    if (!isFinite(start) || start < 0 || start > 86400) planFail(label + ' start must be between 0 and 86400 seconds.');
+    if (!isFinite(duration) || duration < E.MIN || duration > 86400) planFail(label + ' duration must be at least ' + E.MIN + ' seconds and no more than 86400 seconds.');
+    var sourceIn = existing && existing['in'] ? existing['in'] : 0;
+    if (media && (kind === 'video' || kind === 'audio') && isFinite(media.dur) && duration > media.dur - sourceIn + 1e-6) {
+      planFail(label + ' duration exceeds the remaining length of its source media.');
+    }
+
+    var name = item.name == null ? (existing ? existing.name : (media ? media.name : 'Text')) : planString(item.name, label + ' name', 60, true);
+    var textContent = item.content == null ? null : planString(item.content, label + ' content', 400, false);
+    if (kind !== 'text' && textContent !== null) planFail(label + ' content is only available on text clips.');
+    if (kind === 'text' && !existing && textContent == null) textContent = 'Your text';
+
+    var properties = {};
+    if (item.properties != null) {
+      if (typeof item.properties !== 'object' || Array.isArray(item.properties)) planFail(label + ' properties must be an object.');
+      Object.keys(item.properties).forEach(function (property) {
+        if (!E.getPropertyDef || !E.normalizeProperty) planFail('The property registry is not available yet.');
+        var def = E.getPropertyDef(property);
+        if (!def) planFail('Unknown property "' + property + '".');
+        if (def.kinds.indexOf(kind) < 0) planFail('Property "' + property + '" is not available on ' + kind + ' clips.');
+        try { properties[property] = E.normalizeProperty(property, item.properties[property]); }
+        catch (err3) { planFail(err3.message || String(err3)); }
+      });
+    }
+    var clip = {
+      alias: alias, aliasKey: aliasKey, kind: kind, mediaId: mediaRef, mediaName: media ? media.name : '',
+      content: textContent, name: name, rowId: rowId, rowKey: rowKey, trackName: rowLabel,
+      start: start, duration: duration, properties: properties, existingId: existing ? existing.id : null,
+      action: existing ? 'update' : 'create'
+    };
+    clipDefs.push(clip);
+  });
+
+  var occupancy = Object.create(null);
+  E.proj.clips.forEach(function (clip) {
+    if (movingIds[clip.id]) return;
+    var key = 'row:' + clip.row;
+    (occupancy[key] || (occupancy[key] = [])).push({ start: clip.start, end: clip.start + clip.dur, alias: clip.name || clip.id });
+  });
+  clipDefs.forEach(function (clip) {
+    var list = occupancy[clip.rowKey] || (occupancy[clip.rowKey] = []);
+    var end = clip.start + clip.duration;
+    var hit = list.find(function (other) { return clip.start < other.end - 1e-6 && other.start < end - 1e-6; });
+    if (hit) planFail('Clip "' + clip.alias + '" overlaps "' + hit.alias + '" on track "' + clip.trackName + '". Move one clip or choose another track.');
+    list.push({ start: clip.start, end: end, alias: clip.alias });
+  });
+
+  return {
+    source: source, trackDefs: trackDefs, clips: clipDefs,
+    summary: {
+      version: 1,
+      tracksToCreate: trackDefs.filter(function (track) { return track.isNew; }).length,
+      tracksToReuse: trackDefs.filter(function (track) { return !track.isNew; }).length,
+      clipsToCreate: clipDefs.filter(function (clip) { return clip.action === 'create'; }).length,
+      clipsToUpdate: clipDefs.filter(function (clip) { return clip.action === 'update'; }).length,
+      timelineEnd: clipDefs.reduce(function (end, clip) { return Math.max(end, clip.start + clip.duration); }, E.end()),
+      items: clipDefs.map(function (clip) {
+        return { alias: clip.alias, kind: clip.kind, mediaName: clip.mediaName, track: clip.trackName, start: clip.start, duration: clip.duration, action: clip.action, clipId: clip.existingId };
+      }),
+      tracks: trackDefs.map(function (track) { return { name: track.name, kind: track.kind === 'a' ? 'audio' : 'video', action: track.isNew ? 'create' : 'reuse' }; })
+    }
+  };
+}
+E.previewProjectPlan = function (plan) {
+  return E.clone(prepareProjectPlan(plan).summary);
+};
+E.applyProjectPlan = function (plan, sourceText) {
+  var prepared = prepareProjectPlan(plan), before = E.proj, previousSelection = E.sel, selected = E.sel, trackIds = Object.create(null);
+  try {
+    E.proj = clone(E.proj);
+    E.proj.rows.forEach(function (row) { if (row.scriptName) trackIds[String(row.scriptName).toLowerCase()] = row.id; });
+    prepared.trackDefs.forEach(function (track) {
+      var id = track.rowId || trackIds[track.key];
+      if (!id) {
+        var row = E.addRow(track.kind, 'bottom');
+        row.scriptName = track.name;
+        row.scriptManaged = true;
+        id = row.id;
+      }
+      trackIds[track.key] = id;
+    });
+    prepared.clips.forEach(function (item) {
+      var clip = item.existingId ? E.clipById(item.existingId) : null;
+      if (!clip) {
+        var options = { name: item.name, dur: item.duration };
+        if (item.mediaId) { options.media = item.mediaId; }
+        clip = E.newClip(item.kind, options);
+        if (item.mediaId && E.media[item.mediaId].fill) clip.tf.fit = 'fill';
+        if (item.kind === 'text' && item.content != null) clip.text.str = item.content;
+        E.proj.clips.push(clip);
+      }
+      clip.scriptAlias = item.alias;
+      clip.name = item.name || clip.name;
+      clip.start = item.start;
+      clip.dur = item.duration;
+      clip.row = item.rowId || trackIds[item.trackName.toLowerCase()] || item.rowKey.slice(4);
+      if (item.kind === 'text' && item.content != null) clip.text.str = item.content;
+      Object.keys(item.properties).forEach(function (property) {
+        E.setProperty(clip, property, item.properties[property], { base: true });
+      });
+      selected = clip.id;
+    });
+    var savedSource = typeof sourceText === 'string' ? sourceText : prepared.source;
+    if (savedSource.length <= 100000) E.proj.projectPlanCode = savedSource;
+    E.sel = selected;
+    E.emit('project'); E.emit('sel'); E.dirty(); E.commit();
+    var result = E.clone(prepared.summary);
+    result.items.forEach(function (item, index) { item.clipId = E.proj.clips.find(function (clip) { return clip.scriptAlias && clip.scriptAlias.toLowerCase() === item.alias.toLowerCase(); }).id; });
+    return result;
+  } catch (err4) {
+    E.proj = before; E.sel = previousSelection;
+    throw err4;
+  }
+};
+
 /* ---------- formatting ---------- */
 E.fmt = function (t, withFrames) {
   t = Math.max(0, t || 0); var m = Math.floor(t / 60), s = Math.floor(t % 60), f = Math.floor((t % 1) * 30 + 1e-4);

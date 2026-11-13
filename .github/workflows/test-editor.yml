@@ -31,6 +31,7 @@ jobs:
           node tools/test_properties.js
           node tools/test_scripts.js
           node tools/test_keyframes.js
+          node tools/test_project_plan.js
       - name: Build the single-file editor
         run: python3 tools/build.py src site/index.html
       - name: Check built page exists

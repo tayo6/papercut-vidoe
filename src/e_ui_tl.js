@@ -108,7 +108,7 @@ function buildRow(r) {
   var row = h('div', { class: 'tl-row rk-' + r.kind + ((r.kind === 'v' ? r.hide : r.mute) ? ' off' : ''), 'data-row': r.id, style: { height: RH[r.kind] + 'px' } });
   var off = r.kind === 'v' ? r.hide : r.mute, nm = r.kind === 'v' ? (off ? 'Show track' : 'Hide track') : (off ? 'Unmute track' : 'Mute track');
   var peers = E.proj.rows.filter(function (x) { return x.kind === r.kind; }), trackNo = peers.indexOf(r) + 1;
-  row.appendChild(h('div', { class: 'tl-head' }, [h('span', { class: 'tl-track-name', text: (r.kind === 'v' ? 'V' : 'A') + trackNo, title: (r.kind === 'v' ? 'Video' : 'Audio') + ' track ' + trackNo }), h('button', { class: 'rb', type: 'button', title: nm, 'aria-label': nm, 'aria-pressed': String(!!off), html: U.ic(r.kind === 'v' ? (off ? 'eyeoff' : 'eye') : (off ? 'mute' : 'vol'), 16), onclick: function () { E.setRowFlag(r.id, r.kind === 'v' ? 'hide' : 'mute'); } })]));
+  row.appendChild(h('div', { class: 'tl-head' }, [h('span', { class: 'tl-track-name', text: r.scriptName || ((r.kind === 'v' ? 'V' : 'A') + trackNo), title: r.scriptName ? (r.scriptName + ' track') : ((r.kind === 'v' ? 'Video' : 'Audio') + ' track ' + trackNo) }), h('button', { class: 'rb', type: 'button', title: nm, 'aria-label': nm, 'aria-pressed': String(!!off), html: U.ic(r.kind === 'v' ? (off ? 'eyeoff' : 'eye') : (off ? 'mute' : 'vol'), 16), onclick: function () { E.setRowFlag(r.id, r.kind === 'v' ? 'hide' : 'mute'); } })]));
   var lane = h('div', { class: 'tl-lane', style: { width: W + 'px' } });
   lane.addEventListener('click', function (e) { if (e.target !== lane) return; E.select(null); E.pause(); E.seek(Math.max(0, timeAt(e.clientX))); });
   E.rowClips(r.id).forEach(function (c) { lane.appendChild(buildClip(c)); });
