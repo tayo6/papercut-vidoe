@@ -62,7 +62,15 @@ function varsAt(t,d){return {time:t,duration:d,progress:d>0?t/d:0};}
 function evalTarget(st,t,d){return validValue(st.id,evaluate(st.expression,varsAt(t,d),0),st.line);}
 function colorMix(a,b,k){var x=parseInt(a.slice(1),16),y=parseInt(b.slice(1),16);function hx(v){return Math.round(v).toString(16).padStart(2,'0');}
  return '#'+hx((x>>16&255)+((y>>16&255)-(x>>16&255))*k)+hx((x>>8&255)+((y>>8&255)-(x>>8&255))*k)+hx((x&255)+((y&255)-(x&255))*k);}
-function sampleTween(tw,t){var k=Math.max(0,Math.min(1,(t-tw.at)/tw.duration)),e=k;if(tw.ease==='in')e=k*k;else if(tw.ease==='out')e=1-(1-k)*(1-k);else if(tw.ease==='inout')e=k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;else if(tw.ease==='smooth')e=k*k*(3-2*k);
+E.easeProgress=function(ease,progress){
+ var k=Number(progress);if(!isFinite(k))k=0;k=Math.max(0,Math.min(1,k));
+ if(ease==='linear')return k;
+ if(ease==='in')return k*k;
+ if(ease==='out')return 1-(1-k)*(1-k);
+ if(ease==='inout')return k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+ return k*k*(3-2*k);
+};
+function sampleTween(tw,t){var k=Math.max(0,Math.min(1,(t-tw.at)/tw.duration)),e=E.easeProgress(tw.ease,k);
  return typeof tw.from==='string'?colorMix(tw.from,tw.to,e):tw.from+(tw.to-tw.from)*e;}
 function cueValue(clip,events,id,t,d){var started=false,current,active=null;for(var i=0;i<events.length;i++){var q=events[i];if(q.id!==id||q.at>t)continue;
  if(!started){current=E.getProperty(clip,id,q.at);started=true;}if(active)current=sampleTween(active,q.at);active=null;var target=evalTarget(q,q.at,d);
