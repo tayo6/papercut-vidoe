@@ -150,7 +150,7 @@ let projectFrame=E.runProjectScriptFrame(projectVideo,1.5);
 assert(Math.abs(projectFrame.transform.scale-0.75)<1e-9);
 projectFrame=E.runProjectScriptFrame(projectText,2.5);
 assert(Math.abs(projectFrame.transform.y-Math.sin(2.5)*0.1)<1e-9);
-assert.strictEqual(projectFrame.text.fontSize,150);
+assert.strictEqual(projectFrame.text.fontSize,160);
 assert.strictEqual(E.hasProjectScriptTarget(projectText,'text.fontSize'),true);
 assert.strictEqual(E.hasProjectScriptTarget(projectVideo,'text.fontSize'),false);
 assert.throws(()=>E.compileProjectScript('clip missing set transform.x = 1'),/Unknown clip target/);
