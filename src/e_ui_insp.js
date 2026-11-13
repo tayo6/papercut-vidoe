@@ -318,8 +318,11 @@ function tabScript(c, b) {
   function updateBezierFromPointer(e) {
     var svg=cueCurve.querySelector('svg');if(!svg)return;
     var rect=svg.getBoundingClientRect();if(!rect.width||!rect.height)return;
-    var sx=clamp((e.clientX-rect.left)/rect.width*200,10,190);
-    var sy=clamp((e.clientY-rect.top)/rect.height*78,10,76);
+    /* SVG viewBox uses xMidYMid meet; account for any letterboxing in the visible box. */
+    var scale=Math.min(rect.width/200,rect.height/78);if(!scale)return;
+    var drawW=200*scale,drawH=78*scale,offsetX=(rect.width-drawW)/2,offsetY=(rect.height-drawH)/2;
+    var sx=clamp((e.clientX-rect.left-offsetX)/scale,10,190);
+    var sy=clamp((e.clientY-rect.top-offsetY)/scale,10,76);
     var x=Math.round(clamp((sx-10)/180,0,1)*1000)/1000;
     var y=Math.round(clamp((65-sy)/44,-.25,1.25)*1000)/1000;
     var suffix=String(cueBezierDrag);
