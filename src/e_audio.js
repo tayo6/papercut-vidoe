@@ -35,11 +35,34 @@ function applyEnv(gp, c, tStart, rel) {
   var pts = envPoints(c); gp.setValueAtTime(envAt(pts, rel), tStart + rel);
   for (var i = 0; i < pts.length; i++) if (pts[i][0] > rel + 1e-6) gp.linearRampToValueAtTime(pts[i][1], tStart + pts[i][0]);
 }
+function hasScriptAudio(c) {
+  return !!(E.hasClipScriptTarget && (
+    E.hasClipScriptTarget(c, 'audio.volume') ||
+    E.hasClipScriptTarget(c, 'audio.fadeIn') ||
+    E.hasClipScriptTarget(c, 'audio.fadeOut')
+  ));
+}
+function applyScriptEnv(gp, c, when, rel, span) {
+  var count = Math.max(2, Math.min(18001, Math.ceil(span * 30) + 1)), curve = new Float32Array(count);
+  for (var i = 0; i < count; i++) {
+    var local = rel + span * i / (count - 1), frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, local) : null;
+    var changes = frame && frame.scriptedValues || {}, a = frame && frame.audio;
+    var vol = Object.prototype.hasOwnProperty.call(changes, 'audio.volume') ? a.volume : c.vol;
+    var fi = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeIn') ? a.fadeIn : c.fadeIn;
+    var fo = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeOut') ? a.fadeOut : c.fadeOut;
+    var fadeIn = Math.min(Math.max(0, fi || 0), c.dur), fadeOut = Math.min(Math.max(0, fo || 0), Math.max(0, c.dur - fadeIn));
+    var gain = Math.max(0, vol || 0);
+    if (fadeIn > 0 && local < fadeIn) gain *= local / fadeIn;
+    if (fadeOut > 0 && local > c.dur - fadeOut) gain *= Math.max(0, (c.dur - local) / fadeOut);
+    curve[i] = isFinite(gain) ? gain : 0;
+  }
+  gp.setValueCurveAtTime(curve, when, Math.max(0.005, span));
+}
 A.clips = function () {
   return E.proj.clips.filter(function (c) {
     if (c.kind !== 'audio' && c.kind !== 'video') return false;
     var m = E.media[c.media]; if (!m || !m.buffer) return false;
-    var r = E.rowById(c.row); return r && !r.mute && !c.mute && c.vol > 0;
+    var r = E.rowById(c.row); return r && !r.mute && !c.mute && (c.vol > 0 || c.scriptEnabled === true);
   });
 };
 A.hasAudio = function () { return A.clips().length > 0; };
@@ -61,7 +84,7 @@ A.start = function (T) {
     var rel = Math.max(0, T - c.start), when = now + Math.max(0, c.start - T), off = c['in'] + rel, dur = Math.min(c.dur - rel, m.buffer.duration - off);
     if (dur <= 0.005) return;
     var s = a.createBufferSource(); s.buffer = m.buffer; var g = a.createGain(); s.connect(g); g.connect(master);
-    applyEnv(g.gain, c, when - rel, rel);
+    if (hasScriptAudio(c)) applyScriptEnv(g.gain, c, when, rel, dur); else applyEnv(g.gain, c, when - rel, rel);
     s.start(when, off, dur); srcs.push({ s: s, g: g });
   });
 };
@@ -87,7 +110,8 @@ A.mix = async function (dur, sr) {
     if (c.start >= dur) return;
     var m = E.media[c.media], cd = Math.min(c.dur, dur - c.start, m.buffer.duration - c['in']); if (cd <= 0.005) return;
     var s = oc.createBufferSource(); s.buffer = m.buffer; var g = oc.createGain(); s.connect(g); g.connect(oc.destination);
-    applyEnv(g.gain, c, c.start, 0); s.start(c.start, c['in'], cd); any = true;
+    if (hasScriptAudio(c)) applyScriptEnv(g.gain, c, c.start, 0, cd); else applyEnv(g.gain, c, c.start, 0);
+    s.start(c.start, c['in'], cd); any = true;
   });
   if (!any) return null;
   return oc.startRendering();
