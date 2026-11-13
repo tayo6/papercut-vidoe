@@ -40,7 +40,7 @@ E.rowKind = function (clip) { return clip.kind === 'audio' ? 'a' : 'v'; };
 E.newProject = function (ratio) {
   ratio = E.RATIOS[ratio] ? ratio : '16:9';
   var d = E.RATIOS[ratio];
-  E.proj = { name: 'Untitled', ratio: ratio, w: d[0], h: d[1], bg: { type: 'color', color: '#111111' }, rows: [], clips: [], scriptPresets: [] };
+  E.proj = { name: 'Untitled', ratio: ratio, w: d[0], h: d[1], bg: { type: 'color', color: '#111111' }, rows: [], clips: [], scriptPresets: [], motionPresets: [] };
   E.proj.rows.push({ id: E.uid('r'), kind: 'v', hide: false, mute: false }, { id: E.uid('r'), kind: 'a', hide: false, mute: false });
   E.t = 0; E.sel = null; E.playing = false;
   E.resetHistory(); E.emit('project'); E.emit('sel'); E.dirty();
@@ -232,6 +232,108 @@ E.setKfEase = function (c, lt, e) {
   E.kfEase = e; var hit = false;
   if (c && c.kf) E.KF_PARAMS.forEach(function (p) { var i = E.kfIndex(c, p, lt); if (i >= 0) { c.kf[p][i].e = e; hit = true; } });
   if (hit) { E.emit('project'); E.dirty(); E.commit(); }
+};
+
+/* Add, edit and remove an individual property keyframe. These operations are
+   deliberately separate from moveKfTime, which moves a whole timestamp group. */
+E.addKf = function (c, p, lt) {
+  if (!c || E.KF_PARAMS.indexOf(p) < 0) throw new TypeError('Choose a supported transform track.');
+  if (!c.kf) c.kf = E.defKf();
+  lt = Number(lt);
+  if (!isFinite(lt)) throw new TypeError('Keyframe time must be a number.');
+  lt = clamp(lt, 0, c.dur);
+  var existing = E.kfIndex(c, p, lt);
+  if (existing >= 0) return { t: c.kf[p][existing].t, v: c.kf[p][existing].v, e: c.kf[p][existing].e };
+  var key = { t: lt, v: E.tfAt(c, lt)[p], e: E.kfEase };
+  kfInsert(c.kf[p], key);
+  return { t: key.t, v: key.v, e: key.e };
+};
+E.updateKf = function (c, p, index, patch) {
+  if (!c || E.KF_PARAMS.indexOf(p) < 0 || !c.kf || !c.kf[p] || !c.kf[p][index]) throw new Error('The selected keyframe no longer exists.');
+  patch = patch || {};
+  var a = c.kf[p], key = a[index];
+  if (patch.t != null) {
+    var t = Number(patch.t);
+    if (!isFinite(t)) throw new TypeError('Keyframe time must be a number.');
+    t = clamp(t, 0, c.dur);
+    if (a.some(function (other, i) { return i !== index && Math.abs(other.t - t) <= E.KF_EPS; })) throw new Error('This track already has a keyframe at that time.');
+    key.t = t;
+  }
+  if (patch.v != null) {
+    var v = Number(patch.v), limits = { x: [-1, 1], y: [-1, 1], s: [0.03, 10], r: [-3600, 3600], o: [0, 1] }[p];
+    if (!isFinite(v) || v < limits[0] || v > limits[1]) throw new RangeError('Keyframe value is outside the supported range for this track.');
+    key.v = v;
+  }
+  if (patch.e != null) {
+    if (['ease', 'lin', 'hold'].indexOf(patch.e) < 0) throw new TypeError('Choose Smooth, Linear or Hold easing.');
+    key.e = patch.e;
+  }
+  a.sort(function (x, y) { return x.t - y.t; });
+  return { t: key.t, v: key.v, e: key.e };
+};
+E.deleteKf = function (c, p, index) {
+  var a = c && c.kf && c.kf[p];
+  if (!a || index < 0 || index >= a.length) return false;
+  var gone = a.splice(index, 1)[0];
+  if (!a.length) c.tf[p] = gone.v;
+  return true;
+};
+
+/* Project-level motion presets store only transform keyframes, not clip media or layout. */
+function motionPresetList() {
+  if (!E.proj) throw new Error('Open a project before using the motion library.');
+  if (!Array.isArray(E.proj.motionPresets)) E.proj.motionPresets = [];
+  return E.proj.motionPresets;
+}
+E.listMotionPresets = function () { return motionPresetList().slice(); };
+E.getMotionPreset = function (id) {
+  var list = motionPresetList();
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+  return null;
+};
+E.saveMotionPreset = function (name, clip) {
+  name = String(name == null ? '' : name).trim();
+  if (!clip || ['image', 'video', 'text'].indexOf(clip.kind) < 0) throw new TypeError('Select an image, video or text clip before saving a motion preset.');
+  if (!name) throw new Error('Enter a name for this motion preset.');
+  if (name.length > 48) throw new Error('Preset names are limited to 48 characters.');
+  if (!E.hasKf(clip)) throw new Error('Add at least one keyframe before saving a motion preset.');
+  var tracks = E.defKf(), count = 0, maxTime = 0;
+  E.KF_PARAMS.forEach(function (p) {
+    tracks[p] = (clip.kf[p] || []).map(function (k) {
+      return { t: Number(k.t), v: Number(k.v), e: ['ease', 'lin', 'hold'].indexOf(k.e) >= 0 ? k.e : 'ease' };
+    }).filter(function (k) { return isFinite(k.t) && isFinite(k.v) && k.t >= 0; }).sort(function (a, b) { return a.t - b.t; });
+    count += tracks[p].length;
+    tracks[p].forEach(function (k) { maxTime = Math.max(maxTime, k.t); });
+  });
+  if (!count) throw new Error('Add at least one valid keyframe before saving a motion preset.');
+  var list = motionPresetList(), key = name.toLowerCase(), item = null;
+  for (var i = 0; i < list.length; i++) if (String(list[i].name || '').toLowerCase() === key) { item = list[i]; break; }
+  if (item) { item.name = name; item.tracks = tracks; item.keyframes = count; item.duration = maxTime; }
+  else {
+    if (list.length >= 50) throw new Error('A project can contain up to 50 saved motion presets.');
+    item = { id: E.uid('mp'), name: name, tracks: tracks, keyframes: count, duration: maxTime };
+    list.push(item);
+  }
+  return item;
+};
+E.applyMotionPreset = function (id, clip) {
+  var item = E.getMotionPreset(id);
+  if (!item) throw new Error('Choose a saved motion preset first.');
+  if (!clip || ['image', 'video', 'text'].indexOf(clip.kind) < 0) throw new TypeError('Motion presets can be applied to image, video or text clips.');
+  var tracks = item.tracks || {}, longest = 0;
+  E.KF_PARAMS.forEach(function (p) { (tracks[p] || []).forEach(function (k) { longest = Math.max(longest, Number(k.t) || 0); }); });
+  if (longest > clip.dur + E.KF_EPS) throw new Error('This motion preset is longer than the selected clip. Extend the clip first.');
+  var copy = E.defKf();
+  E.KF_PARAMS.forEach(function (p) {
+    copy[p] = (tracks[p] || []).map(function (k) { return { t: Number(k.t), v: Number(k.v), e: k.e }; }).sort(function (a, b) { return a.t - b.t; });
+  });
+  clip.kf = copy;
+  return true;
+};
+E.deleteMotionPreset = function (id) {
+  var list = motionPresetList();
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) { list.splice(i, 1); return true; }
+  return false;
 };
 /* The clip is cut at d seconds: b is a copy made from c. Each animated parameter gets a keyframe at the cut so the motion carries on unbroken. */
 function splitKf(c, b, d) {
