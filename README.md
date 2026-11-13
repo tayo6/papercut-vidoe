@@ -18,3 +18,15 @@ Sources are in `src/`. Rebuild the single-file page with:
 ## Credits
 
 MP4 and WebM muxing by [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) and [webm-muxer](https://github.com/Vanilagy/webm-muxer) (MIT), bundled in `src/v_*.js`.
+
+
+## Clip scripting
+
+Select an image, video or text clip, open Edit → Script, then insert or write a SnipScript. Apply it to preview the result; the same frame evaluation is used when exporting.
+
+Example:
+
+    set transform.y = sin(time * 2) * 0.04
+    set transform.rotation = sin(time * 1.2) * 3
+
+SnipScript is a restricted expression language, not JavaScript. It supports time (seconds from the clip start), duration, progress (0–1), pi, arithmetic, and a small set of math functions. Scripts currently override clip transforms non-destructively; the original transform and keyframe data remain intact. Audio, text styling and PaperCut scripting are not part of this first runtime.

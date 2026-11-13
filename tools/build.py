@@ -2,7 +2,7 @@ import sys, os
 d=sys.argv[1]
 head=open(d+'/h_head.html',encoding='utf-8').read().replace('/*FONTS*/',open(d+'/fonts.css',encoding='utf-8').read())+'<style>\n'+open(d+'/h_edit.css',encoding='utf-8').read()+'\n</style>\n'
 body=open(d+'/h_body.html',encoding='utf-8').read()+open(d+'/h_edit.html',encoding='utf-8').read()
-names=['u_utils','s_subject','s_paper','m_cutout','m_fold','m_text','m_news','a_audio_gif','e_core','e_props','e_media','e_audio','e_render','e_ui','e_ui_tl','e_ui_bar','e_ui_insp','v_mp4mux','v_webmmux','e_export','z_main']
+names=['u_utils','s_subject','s_paper','m_cutout','m_fold','m_text','m_news','a_audio_gif','e_core','e_props','e_script','e_media','e_audio','e_render','e_ui','e_ui_tl','e_ui_bar','e_ui_insp','v_mp4mux','v_webmmux','e_export','z_main']
 js='\n'.join(open('%s/%s.js'%(d,n),encoding='utf-8').read() for n in names)
 page=head+body+'<script>\n'+js+'\n</script>\n'
 t='<title>Snipwork</title>'
