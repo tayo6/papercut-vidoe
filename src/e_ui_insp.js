@@ -989,8 +989,8 @@ function tabProject(c, b) {
   bound.push(function () { var t = E.proj.bg.type; pb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === t)); }); if (E.proj.bg.type === 'color' && /^#[0-9a-f]{6}$/i.test(E.proj.bg.color)) bc.value = E.proj.bg.color; }); bound[bound.length - 1]();
   b.appendChild(hint('The background shows behind every clip. Add a photo on the bottom track to use a picture instead.'));
 
-  b.appendChild(sec('Project animation script'));
-  b.appendChild(hint('Animate several clips from one shared project clock. Each line targets a clip by ID; project time starts at 0 and runs to the end of the timeline.'));
+  b.appendChild(sec('Project-wide animation script'));
+  b.appendChild(hint('Coordinate clips across the whole timeline. This script uses absolute project time and has the highest priority: clip scripts run first, then scene scripts, then this project-wide script.'));
   var projectTargets = h('select', { class: 'es', 'aria-label': 'Choose a clip to target' });
   function refreshProjectTargets() {
     projectTargets.textContent = '';
@@ -1045,6 +1045,122 @@ function tabProject(c, b) {
   b.appendChild(projectStatus);
   b.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets accept clip IDs or Script Builder aliases; properties support transform.*, paper.*, text.* and audio.* when available on that clip.'));
 
+
+
+  b.appendChild(sec('Scene-local animation script'));
+  b.appendChild(hint('Write one reusable script for the selected scene. The time and duration variables use that scene’s own clock. Scene scripts can target only clips inside that scene.'));
+  var scenePick = h('select', { class: 'es', 'aria-label': 'Choose a scene to script' });
+  var sceneClipPick = h('select', { class: 'es', 'aria-label': 'Choose a clip in the scene' });
+  var sceneCode = h('textarea', { class: 'ti script-code', rows: 8, spellcheck: 'false', 'aria-label': 'Scene SnipScript code' });
+  var sceneStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
+  var loadedSceneId = '';
+  function selectedScene() {
+    return (E.proj.scenes || []).find(function (scene) { return scene.id === scenePick.value; }) || null;
+  }
+  function loadSceneCode() {
+    var scene = selectedScene();
+    loadedSceneId = scene ? scene.id : '';
+    sceneCode.value = scene ? (scene.scriptCode || '') : '';
+    sceneCode.disabled = !scene;
+    sceneStatus.textContent = scene ? (scene.scriptEnabled ? 'Scene script is enabled.' : 'Scene script is disabled. Check and apply to enable it.') : 'Create a scene with a version 2 plan first.';
+  }
+  function refreshSceneClipPicker() {
+    var scene = selectedScene(), old = sceneClipPick.value;
+    sceneClipPick.textContent = '';
+    if (!scene) {
+      sceneClipPick.disabled = true;
+      return;
+    }
+    E.proj.clips.filter(function (clip) { return clip.sceneId === scene.id; }).forEach(function (clip) {
+      var target = clip.scriptAlias || clip.id;
+      sceneClipPick.appendChild(h('option', { value: target, text: (clip.name || clip.kind) + ' · ' + target }));
+    });
+    sceneClipPick.disabled = !sceneClipPick.options.length;
+    if (old && Array.prototype.some.call(sceneClipPick.options, function (option) { return option.value === old; })) sceneClipPick.value = old;
+  }
+  function refreshScenePicker() {
+    var old = scenePick.value, scenes = (E.proj.scenes || []).slice().sort(function (a, b) { return a.start - b.start; });
+    scenePick.textContent = '';
+    scenes.forEach(function (scene) {
+      scenePick.appendChild(h('option', { value: scene.id, text: (scene.name || scene.alias) + ' · ' + E.fmtS(scene.start) }));
+    });
+    if (old && scenes.some(function (scene) { return scene.id === old; })) scenePick.value = old;
+    else if (scenes.length) scenePick.value = scenes[0].id;
+    refreshSceneClipPicker();
+    var scene = selectedScene();
+    if (!scene) {
+      loadedSceneId = '';
+      sceneCode.value = '';
+      sceneCode.disabled = true;
+      sceneStatus.textContent = 'Create a scene with a version 2 plan first.';
+    } else if (loadedSceneId !== scene.id && document.activeElement !== sceneCode) {
+      loadSceneCode();
+    } else {
+      sceneCode.disabled = false;
+    }
+    scenePick.disabled = !scenes.length;
+  }
+  function sceneInsert(text) {
+    var old = sceneCode.value || '';
+    sceneCode.value = (old && !old.endsWith('\n') ? old + '\n' : old) + text;
+    sceneCode.focus();
+    sceneCode.setSelectionRange(sceneCode.value.length, sceneCode.value.length);
+    sceneStatus.textContent = 'Scene script added to the draft. Check it, then apply.';
+  }
+  scenePick.addEventListener('change', function () {
+    refreshSceneClipPicker();
+    loadSceneCode();
+  });
+  var insertSceneContinuous = sb('Insert continuous target', function () {
+    if (!selectedScene() || !sceneClipPick.value) { sceneStatus.textContent = 'Choose a scene clip first.'; return; }
+    sceneInsert('clip ' + sceneClipPick.value + ' set transform.y = sin(time * 2) * 0.04');
+  });
+  var insertSceneTween = sb('Insert scene tween', function () {
+    if (!selectedScene() || !sceneClipPick.value) { sceneStatus.textContent = 'Choose a scene clip first.'; return; }
+    sceneInsert('at 0s clip ' + sceneClipPick.value + ' set transform.scale = 0.7\nat 0.25s clip ' + sceneClipPick.value + ' tween transform.scale = 1 over 0.6s ease out');
+  });
+  var checkScene = sb('Check scene script', function () {
+    try {
+      var scene = selectedScene();
+      if (!scene) throw new Error('Choose a scene first.');
+      var result = E.compileSceneScript(scene, sceneCode.value);
+      sceneStatus.textContent = 'Valid: ' + result.statements + ' statements across ' + result.targets.length + ' clips. Time is relative to "' + (scene.name || scene.alias) + '".';
+    } catch (err) { sceneStatus.textContent = err.message || String(err); }
+  });
+  var applyScene = sb('Apply & enable', function () {
+    try {
+      var scene = selectedScene();
+      if (!scene) throw new Error('Choose a scene first.');
+      E.compileSceneScript(scene, sceneCode.value);
+      scene.scriptCode = sceneCode.value;
+      scene.scriptEnabled = true;
+      E.dirty(); E.commit(); E.emit('project');
+      sceneStatus.textContent = 'Scene script enabled. It runs in preview, video export and audio rendering.';
+      U.toast('Scene SnipScript enabled.');
+    } catch (err) { sceneStatus.textContent = err.message || String(err); }
+  });
+  var disableScene = sb('Disable scene script', function () {
+    var scene = selectedScene();
+    if (!scene) { sceneStatus.textContent = 'Choose a scene first.'; return; }
+    scene.scriptEnabled = false;
+    E.dirty(); E.commit(); E.emit('project');
+    sceneStatus.textContent = 'Scene script disabled. The code is still saved.';
+  });
+  refreshScenePicker();
+  bound.push(function () {
+    refreshScenePicker();
+    if (document.activeElement !== sceneCode && loadedSceneId === scenePick.value) {
+      var scene = selectedScene();
+      if (scene && sceneCode.value !== (scene.scriptCode || '')) sceneCode.value = scene.scriptCode || '';
+      if (scene) sceneStatus.textContent = scene.scriptEnabled ? 'Scene script is enabled.' : 'Scene script is disabled. Check and apply to enable it.';
+    }
+  });
+  b.appendChild(scenePick);
+  b.appendChild(sceneClipPick);
+  b.appendChild(sceneCode);
+  b.appendChild(h('div', { class: 'script-actions' }, [insertSceneContinuous, insertSceneTween, checkScene, applyScene, disableScene]));
+  b.appendChild(sceneStatus);
+  b.appendChild(hint('Scene examples: clip hero-shot set transform.y = sin(time * 2) * 0.04, or at 1s clip hero-shot tween paper.edge = 42 over 0.5s ease out. Here time 1s means one second after this scene begins.'));
 
   b.appendChild(sec('Script-driven Project Builder'));
   b.appendChild(hint('Build tracks and place clips with a safe JSON plan. Import image, video or audio files first; this builder never reads files or runs JavaScript.'));

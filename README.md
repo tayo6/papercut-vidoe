@@ -169,4 +169,19 @@ Example structure:
 
 When the main scene start changes from 5 to 7, its nested clip starts at 7.5 seconds automatically. Reapplying the plan updates matching scene and clip aliases without duplicating them. The Project inspector includes a scene navigator, and the timeline shows clickable scene blocks that move the playhead to each scene's start.
 
-Version 1 flat plans remain supported. Version 2 scenes currently organize and position existing imported media and text clips; transitions, scene templates, deleting content by omission, and per-scene animation-script blocks are later extensions. Project SnipScript can already animate the clips inside scenes by their stable clip aliases.
+Version 1 flat plans remain supported. Version 2 scenes currently organize and position existing imported media and text clips; transitions, scene templates and deleting content by omission are later extensions. Each scene also has its own SnipScript editor, with scene-relative time, duration and progress variables. Scene scripts can target only their own clips by stable alias. The execution order is clip script, then scene script, then project-wide script; the project-wide script has final priority.
+
+
+## Scene-local SnipScript
+
+Select a scene in the Project panel's **Scene-local animation script** section. Each scene has a separate saved script, with its own enable/disable state. The language is the same restricted SnipScript used by clips and projects, but its clock starts at the scene's start time.
+
+    # These expressions use the scene clock, not the full project clock.
+    clip hero-shot set transform.y = sin(time * 2) * 0.04
+    at 0s clip hero-shot set transform.scale = 0.7
+    at 0.25s clip hero-shot tween transform.scale = 1 over 0.6s ease out
+    at 1s clip hero-shot tween paper.edge = 42 over 0.5s ease inout
+
+Inside a scene script, time is elapsed seconds since that scene began, duration is the scene duration, and progress runs from 0 to 1 over that scene. A scene script can address only clips assigned to that scene. It can animate transforms, text, audio and papercut properties; the same restricted expression, easing and validation rules apply.
+
+Scripts are layered in this order: **clip script → scene script → project-wide script**. A later layer overrides an earlier layer when both write the same property. Scene scripts run in preview, video export and audio rendering. Disabling a scene script preserves its code in the project.
