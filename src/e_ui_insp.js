@@ -526,7 +526,7 @@ function tabAudio(c, b) {
 
 function tabScript(c, b) {
   b.appendChild(sec('SnipScript'));
-  b.appendChild(hint('Create continuous animations or timed events for this clip. Cues and tweens run deterministically in preview and export. This is not JavaScript and has no browser or network access.'));
+  b.appendChild(hint('Create continuous animations or timed events for this clip. Try pingpong, triangle, pulse, smoothstep and remap for expressive motion; timed tweens support sine, cubic, quart, quint, expo, circ, back, bounce, elastic and custom Bezier easing. Cues run deterministically in preview and export. This is not JavaScript and has no browser or network access.'));
   var ta = h('textarea', { class: 'ti script-code', rows: 10, spellcheck: 'false', 'aria-label': 'SnipScript code' });
   ta.value = c.scriptCode || '';
   var status = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
