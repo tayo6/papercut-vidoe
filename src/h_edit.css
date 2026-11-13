@@ -420,7 +420,7 @@ body.ed-on .wrap { display: none; }
 .mke-bezier-grid .num:focus { border-color: var(--e-acc); outline: 0; }
 .mke-bezier-grid + .hint { margin-top: 8px; }
 .mke-bezier-line { fill: none; stroke: var(--e-acc); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.mke-bezier-grid { fill: none; stroke: var(--e-line); stroke-width: .8; }
+.mke-bezier-chart-grid { fill: none; stroke: var(--e-line); stroke-width: .8; }
 .mke-bezier-guide { fill: none; stroke: var(--e-mut); stroke-width: 1; stroke-dasharray: 3 4; opacity: .55; }
 .mke-bezier-arms { fill: none; stroke: var(--e-mut); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .9; }
 .mke-bezier-handle { fill: var(--e-p1); stroke: var(--e-acc); stroke-width: 2.5; cursor: grab; pointer-events: all; }

@@ -264,7 +264,7 @@ function motionEditor(c) {
         '<circle class="mke-bezier-handle" data-mke-handle="1" cx="' + p1x.toFixed(2) + '" cy="' + p1y.toFixed(2) + '" r="6" />' +
         '<circle class="mke-bezier-handle" data-mke-handle="2" cx="' + p2x.toFixed(2) + '" cy="' + p2y.toFixed(2) + '" r="6" />';
       curveView.innerHTML = '<svg viewBox="0 0 200 78" aria-hidden="true" focusable="false">' +
-        '<path class="mke-bezier-grid" d="M10 10H190 M10 43H190 M10 76H190 M10 10V76 M100 10V76 M190 10V76" />' +
+        '<path class="mke-bezier-chart-grid" d="M10 10H190 M10 43H190 M10 76H190 M10 10V76 M100 10V76 M190 10V76" />' +
         '<path class="mke-bezier-guide" d="M10 65L190 21" />' + controls +
         '<polyline class="mke-bezier-line" points="' + points.join(' ') + '" /></svg>';
       curveView.setAttribute('aria-label', 'Custom cubic Bezier easing curve. Drag either control point or use the four numeric fields.');
