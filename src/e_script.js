@@ -77,4 +77,26 @@ E.runClipScriptFrame=function(clip,time){if(!clip||clip.scriptEnabled!==true||!S
  }catch(err){var cached=CACHE.get(clip);if(!cached||cached.source!==clip.scriptCode)cached={source:clip.scriptCode||'',program:null,error:''};cached.error=err&&err.message?err.message:String(err);CACHE.set(clip,cached);return null;}};
 E.runClipScript=function(clip,time){var f=E.runClipScriptFrame(clip,time);return f?f.transform:null;};
 E.getClipScriptError=function(clip){var c=clip&&CACHE.get(clip);return c&&c.source===(clip.scriptCode||'')?c.error:'';};
+
+/* Timeline cue API. Cues are keyed by source line so marker drags edit the script itself. */
+E.listClipScriptCues=function(clip){
+ if(!clip||!String(clip.scriptCode||'').trim())return [];
+ try{return parseProgram(clip,clip.scriptCode).events.map(function(q){
+  return {line:q.line,at:q.at,mode:q.mode,property:q.id,duration:q.duration,end:q.at+q.duration};
+ });}catch(e){return [];}
+};
+E.moveClipScriptCue=function(clip,lineNumber,nextTime){
+ if(!clip)throw new TypeError('A clip is required.');
+ if(typeof nextTime!=='number'||!isFinite(nextTime))throw new TypeError('Cue time must be finite.');
+ var current=parseProgram(clip,clip.scriptCode||''),cue=null;
+ for(var i=0;i<current.events.length;i++)if(current.events[i].line===lineNumber){cue=current.events[i];break;}
+ if(!cue)throw new Error('The selected script cue no longer exists.');
+ var max=Math.max(0,(Number(clip.dur)||0)-cue.duration),at=Math.round(Math.max(0,Math.min(max,nextTime))*100)/100;
+ var lines=(clip.scriptCode||'').split(/\r?\n/),old=lines[lineNumber-1];
+ var match=old&&old.match(/^(\s*at\s+)(\d+(?:\.\d*)?|\.\d+)(.*)$/i);
+ if(!match)throw new Error('The selected line is not a timed cue.');
+ lines[lineNumber-1]=match[1]+String(at)+match[3];
+ var source=lines.join('\n'),program=parseProgram(clip,source);
+ clip.scriptCode=source;CACHE.set(clip,{source:source,program:program,error:''});return at;
+};
 })();

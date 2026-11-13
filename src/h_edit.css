@@ -309,3 +309,11 @@ body.ed-on .wrap { display: none; }
 .ed .script-status { min-height: 18px; padding: 7px 8px; border-radius: 6px; background: var(--e-p2); overflow-wrap: anywhere; }
 
 .ed .script-code { min-height: 210px; }
+
+/* SnipScript cues in the clip lane */
+.scrmk { position:absolute; z-index:4; top:2px; bottom:2px; width:2px; margin-left:-1px; background:#ff62d5; cursor:ew-resize; touch-action:none; box-shadow:0 0 0 1px rgba(20,10,24,.55); }
+.scrmk::before { content:""; position:absolute; top:2px; left:-4px; width:8px; height:8px; background:#ffb1eb; border:1px solid #6b2456; border-radius:2px; transform:rotate(45deg); }
+.scrmk[data-mode="tween"] { background:#ffc45e; }
+.scrmk[data-mode="tween"]::before { background:#ffe0a8; border-color:#81521a; }
+.scrmk.off { opacity:.38; }
+.scrmk:hover { width:3px; margin-left:-1.5px; filter:brightness(1.2); }
