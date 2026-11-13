@@ -24,6 +24,7 @@ jobs:
           node --check src/e_render.js
           node --check src/e_audio.js
           node --check src/e_ui_insp.js
+          node --check src/e_ui_tl.js
       - name: Test property and scripting APIs
         run: |
           node tools/test_properties.js

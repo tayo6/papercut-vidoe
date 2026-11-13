@@ -48,7 +48,10 @@ function parseProgram(clip,source){if(typeof source!=='string')throw new TypeErr
    ast=parseExpr(rhs,i+1);
   }else{var set=line.match(/^set\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i);if(!set)fail(i+1,'Use: set transform.x = expression, or at 0.5s tween transform.scale = 1 over 0.4s ease out.');
    id=set[1].toLowerCase();ast=parseExpr(set[2],i+1);mode='continuous';}
-  if(!ALLOWED[id]||available.indexOf(id)<0)fail(i+1,'Property "'+id+'" is not scriptable on this clip.');
+  var requested=id,canonical=null;
+  for(var ai=0;ai<available.length;ai++)if(String(available[ai]).toLowerCase()===requested.toLowerCase()){canonical=available[ai];break;}
+  if(!canonical||!ALLOWED[canonical])fail(i+1,'Property "'+requested+'" is not scriptable on this clip.');
+  id=canonical;
   if(mode==='continuous'){if(eids[id])fail(i+1,'Do not mix continuous and timed cues for '+id+'.');cids[id]=1;continuous.push({id:id,expression:ast,line:i+1});}
   else{if(cids[id])fail(i+1,'Do not mix continuous and timed cues for '+id+'.');eids[id]=1;events.push({id:id,expression:ast,line:i+1,at:atTime,mode:mode,duration:dur,ease:ease,order:order++});}
   if(continuous.length+events.length>32)fail(i+1,'A script can contain at most 32 statements.');}
@@ -77,4 +80,26 @@ E.runClipScriptFrame=function(clip,time){if(!clip||clip.scriptEnabled!==true||!S
  }catch(err){var cached=CACHE.get(clip);if(!cached||cached.source!==clip.scriptCode)cached={source:clip.scriptCode||'',program:null,error:''};cached.error=err&&err.message?err.message:String(err);CACHE.set(clip,cached);return null;}};
 E.runClipScript=function(clip,time){var f=E.runClipScriptFrame(clip,time);return f?f.transform:null;};
 E.getClipScriptError=function(clip){var c=clip&&CACHE.get(clip);return c&&c.source===(clip.scriptCode||'')?c.error:'';};
+
+/* Timeline cue API. Cues are keyed by source line so marker drags edit the script itself. */
+E.listClipScriptCues=function(clip){
+ if(!clip||!String(clip.scriptCode||'').trim())return [];
+ try{return parseProgram(clip,clip.scriptCode).events.map(function(q){
+  return {line:q.line,at:q.at,mode:q.mode,property:q.id,duration:q.duration,end:q.at+q.duration};
+ });}catch(e){return [];}
+};
+E.moveClipScriptCue=function(clip,lineNumber,nextTime){
+ if(!clip)throw new TypeError('A clip is required.');
+ if(typeof nextTime!=='number'||!isFinite(nextTime))throw new TypeError('Cue time must be finite.');
+ var current=parseProgram(clip,clip.scriptCode||''),cue=null;
+ for(var i=0;i<current.events.length;i++)if(current.events[i].line===lineNumber){cue=current.events[i];break;}
+ if(!cue)throw new Error('The selected script cue no longer exists.');
+ var max=Math.max(0,(Number(clip.dur)||0)-cue.duration),at=Math.round(Math.max(0,Math.min(max,nextTime))*100)/100;
+ var lines=(clip.scriptCode||'').split(/\r?\n/),old=lines[lineNumber-1];
+ var match=old&&old.match(/^(\s*at\s+)(\d+(?:\.\d*)?|\.\d+)(.*)$/i);
+ if(!match)throw new Error('The selected line is not a timed cue.');
+ lines[lineNumber-1]=match[1]+String(at)+match[3];
+ var source=lines.join('\n'),program=parseProgram(clip,source);
+ clip.scriptCode=source;CACHE.set(clip,{source:source,program:program,error:''});return at;
+};
 })();

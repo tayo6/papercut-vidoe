@@ -80,9 +80,16 @@ function buildClip(c) {
   paintClip(el, c);
   var cw = Math.max(6, c.dur * pps);
   E.kfTimes(c).forEach(function (t) { if (t < -1e-6 || t > c.dur + 1e-6) return; el.appendChild(h('i', { class: 'kfm', 'data-t': String(t), title: 'Keyframe: click to jump here, drag to move it', style: { left: clamp(t * pps, 7, Math.max(7, cw - 7)) + 'px' }, html: U.kfIcon(11) })); });
+  if (E.listClipScriptCues) E.listClipScriptCues(c).forEach(function (q) {
+    if (q.at < -1e-6 || q.at > c.dur + 1e-6) return;
+    el.appendChild(h('i', { class: 'scrmk' + (c.scriptEnabled ? '' : ' off'), 'data-line': String(q.line), 'data-at': String(q.at), 'data-mode': q.mode,
+      title: (q.mode === 'tween' ? 'Script tween: ' : 'Script event: ') + q.property + ' at ' + q.at.toFixed(2) + 's — tap to jump, drag to retime',
+      'aria-label': 'Script cue for ' + q.property + ' at ' + q.at.toFixed(2) + ' seconds',
+      style: { left: clamp(q.at * pps, 5, Math.max(5, cw - 5)) + 'px' } }));
+  });
   el.addEventListener('pointerdown', function (e) {
-    var km = e.target.closest && e.target.closest('.kfm');
-    if (km) startKf(e, c.id, km); else if (e.target === hl) startTrim(e, c.id, 'l'); else if (e.target === hr) startTrim(e, c.id, 'r'); else startMove(e, c.id);
+    var sm = e.target.closest && e.target.closest('.scrmk'), km = e.target.closest && e.target.closest('.kfm');
+    if (sm) startScriptCue(e, c.id, sm); else if (km) startKf(e, c.id, km); else if (e.target === hl) startTrim(e, c.id, 'l'); else if (e.target === hr) startTrim(e, c.id, 'r'); else startMove(e, c.id);
   });
   el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); E.select(c.id); } });
   clipEls[c.id] = el; return el;
@@ -166,6 +173,7 @@ function onMove(e) {
   var d = drag; if (!d || e.pointerId !== d.pid) return; d.last = e;
   if (d.type === 'trim') { trimTo(e); return; }
   if (d.type === 'kf') { kfTo(e); return; }
+  if (d.type === 'scriptCue') { scriptCueTo(e); return; }
   var c = E.clipById(d.id); if (!c) return;
   if (!d.moved && Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 5) return;
   d.moved = true; d.el.classList.add('drag');
@@ -177,12 +185,12 @@ function onUp(e) {
   var d = drag; if (!d || e.pointerId !== d.pid) return;
   unhook(); clearGhost();
   if (d.type === 'trim') { drag = null; E.emit('project'); E.commit(); return; }
-  if (d.type === 'kf') { drag = null; if (d.moved) { E.emit('project'); E.commit(); } return; }
+  if (d.type === 'kf' || d.type === 'scriptCue') { drag = null; if (d.moved) { E.emit('project'); E.commit(); } return; }
   var id = d.id, moved = d.moved, tgt = d.target, st = d.start; drag = null;
   if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; }
   if (moved && tgt) E.moveClip(id, tgt, st);
 }
-function onCancel(e) { var d = drag; if (!d) return; unhook(); clearGhost(); if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; } if (d.type === 'trim' || (d.type === 'kf' && d.moved)) { E.emit('project'); E.commit(); } drag = null; }
+function onCancel(e) { var d = drag; if (!d) return; unhook(); clearGhost(); if (d.el) { d.el.classList.remove('drag'); d.el.style.transform = ''; } if (d.type === 'trim' || ((d.type === 'kf' || d.type === 'scriptCue') && d.moved)) { E.emit('project'); E.commit(); } drag = null; }
 function unhook() { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onCancel); }
 function autoScroll() {
   if (!drag) return;
@@ -229,6 +237,30 @@ function kfTo(e) {
   var t = Math.round(clamp(timeAt(e.clientX) - c.start, 0, c.dur) * 100) / 100, got = E.moveKfTime(c, d.t, t);
   d.t = got; d.mk.setAttribute('data-t', String(got)); d.mk.style.left = clamp(got * pps, 7, Math.max(7, c.dur * pps - 7)) + 'px';
   E.dirty(); E.seek(c.start + got);
+}
+function startScriptCue(e, id, mk) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  var c = E.clipById(id); if (!c || !E.moveClipScriptCue) return;
+  e.stopPropagation(); e.preventDefault(); E.select(id); E.pause();
+  var at = parseFloat(mk.getAttribute('data-at')) || 0;
+  drag = { type: 'scriptCue', id: id, line: +mk.getAttribute('data-line'), at: at, moved: false, sx: e.clientX, pid: e.pointerId, mk: mk, last: e };
+  E.seek(c.start + at);
+  try { mk.setPointerCapture(e.pointerId); } catch (er) { /* fine */ }
+  window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onCancel);
+}
+function scriptCueTo(e) {
+  var d = drag, c = E.clipById(d.id); if (!c) return;
+  if (!d.moved && Math.abs(e.clientX - d.sx) < 4) return;
+  d.moved = true;
+  var next = Math.round(clamp(timeAt(e.clientX) - c.start, 0, c.dur) * 100) / 100;
+  try {
+    var got = E.moveClipScriptCue(c, d.line, next);
+    d.at = got; d.mk.setAttribute('data-at', String(got));
+    var q = E.listClipScriptCues(c).filter(function (x) { return x.line === d.line; })[0];
+    d.mk.style.left = clamp(got * pps, 5, Math.max(5, c.dur * pps - 5)) + 'px';
+    if (q) d.mk.title = (q.mode === 'tween' ? 'Script tween: ' : 'Script event: ') + q.property + ' at ' + got.toFixed(2) + 's — tap to jump, drag to retime';
+    E.dirty(); E.seek(c.start + got);
+  } catch (err) { U.toast(err && err.message ? err.message : 'Could not move script cue.'); }
 }
 
 /* ---------- drops from the library or the desktop ---------- */
