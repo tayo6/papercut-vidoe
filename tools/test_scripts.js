@@ -72,4 +72,4 @@ assert.strictEqual(E.getScriptPreset(videoPreset.id).code,'set transform.x = 0.2
 assert.strictEqual(E.deleteScriptPreset(textPreset.id),true);
 assert.strictEqual(E.deleteScriptPreset(textPreset.id),false);
 assert.strictEqual(E.listScriptPresets().length,1);
-console.log('SnipScript v2, project library and easing tests passed.');
+console.log('SnipScript v2, project library, easing and custom Bezier tests passed.');
