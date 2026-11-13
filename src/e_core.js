@@ -518,6 +518,7 @@ function prepareProjectPlan(input) {
   if (!E.proj) planFail('Open a project first.');
   var planVersion = raw.version, isUnified = planVersion === 3, hasProjectScript = false, projectScriptCode = '', sceneDefs = [], sceneMap = Object.create(null);
   if (isUnified) {
+    if (Object.prototype.hasOwnProperty.call(raw, 'clips')) planFail('Use version: 1 for a flat clip plan or version: 2 for a scene plan.');
     planKeys(raw, ['version', 'tracks', 'scenes', 'script'], 'plan');
     if (Object.prototype.hasOwnProperty.call(raw, 'script')) {
       if (typeof raw.script !== 'string' || raw.script.length > 8192) planFail('The project script must be text with no more than 8,192 characters.');
