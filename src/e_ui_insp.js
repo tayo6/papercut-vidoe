@@ -992,7 +992,7 @@ function tabProject(c, b) {
   var bundleCode = h('textarea', { class: 'ti script-code', rows: 10, spellcheck: 'false', 'aria-label': 'Unified project script' });
   bundleCode.value = E.proj.projectBundleCode || bundleStarter;
   var bundleStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
-  var bundleFile = h('input', { type: 'file', accept: '.snip,.json,application/json', 'aria-label': 'Import Snipwork project script' });
+  var bundleFile = h('input', { type: 'file', accept: '.snip,.json,application/json', 'aria-label': 'Open a Snipwork project script' });
   bundleFile.hidden = true;
   function showBundleError(err) { bundleStatus.textContent = err && err.message ? err.message : String(err); }
   function readBundleFile(file) {
