@@ -62,7 +62,7 @@ A.clips = function () {
   return E.proj.clips.filter(function (c) {
     if (c.kind !== 'audio' && c.kind !== 'video') return false;
     var m = E.media[c.media]; if (!m || !m.buffer) return false;
-    var r = E.rowById(c.row); return r && !r.mute && !c.mute && (c.vol > 0 || c.scriptEnabled === true);
+    var r = E.rowById(c.row); return r && !r.mute && !c.mute && (c.vol > 0 || hasScriptAudio(c));
   });
 };
 A.hasAudio = function () { return A.clips().length > 0; };

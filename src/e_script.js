@@ -71,7 +71,8 @@ E.hasClipScriptTarget=function(clip,id){return E.getClipScriptTargets(clip).inde
 E.runClipScriptFrame=function(clip,time){if(!clip||clip.scriptEnabled!==true||!String(clip.scriptCode||'').trim())return null;try{
  var p=programFor(clip),d=Math.max(0,Number(clip.dur)||0),t=Math.max(0,Math.min(d,Number(time)||0)),vars=varsAt(t,d),overrides=Object.create(null);
  for(var i=0;i<p.continuous.length;i++){var st=p.continuous[i];overrides[st.id]=validValue(st.id,evaluate(st.expression,vars,0),st.line);}
- for(var j=0;j<p.events.length;j++){var id=p.events[j].id;if(Object.prototype.hasOwnProperty.call(overrides,id))continue;var v=cueValue(clip,p.events,id,t,d);if(v!==undefined)overrides[id]=v;}
+ var processed=Object.create(null);
+ for(var j=0;j<p.events.length;j++){var id=p.events[j].id;if(processed[id]||Object.prototype.hasOwnProperty.call(overrides,id))continue;processed[id]=1;var v=cueValue(clip,p.events,id,t,d);if(v!==undefined)overrides[id]=v;}
  if(!Object.keys(overrides).length)return null;var frame=E.evaluateProperties(clip,t,overrides);frame.scriptedValues=overrides;return frame;
  }catch(err){var cached=CACHE.get(clip);if(!cached||cached.source!==clip.scriptCode)cached={source:clip.scriptCode||'',program:null,error:''};cached.error=err&&err.message?err.message:String(err);CACHE.set(clip,cached);return null;}};
 E.runClipScript=function(clip,time){var f=E.runClipScriptFrame(clip,time);return f?f.transform:null;};
