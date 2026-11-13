@@ -9,6 +9,13 @@ const E={
  evaluateProperties:(c,t,o)=>{const values=Object.assign({},c.values,o);return {values,transform:{x:values['transform.x'],y:values['transform.y'],scale:values['transform.scale'],rotation:values['transform.rotation'],opacity:values['transform.opacity']},audio:{volume:values['audio.volume'],fadeIn:values['audio.fadeIn'],fadeOut:values['audio.fadeOut']},text:{fontSize:values['text.fontSize'],color:values['text.color']},paper:{edge:values['paper.edge'],roughness:values['paper.roughness']}};}
 };
 const context={window:{__snip:{E}},isFinite,Math,Number,Object,String,TypeError,SyntaxError,WeakMap};vm.runInNewContext(fs.readFileSync('src/e_script.js','utf8'),context);
+assert.strictEqual(E.easeProgress('linear',0.25),0.25);
+assert.strictEqual(E.easeProgress('in',0.25),0.0625);
+assert.strictEqual(E.easeProgress('out',0.25),0.4375);
+assert.strictEqual(E.easeProgress('inout',0.25),0.125);
+assert.strictEqual(E.easeProgress('smooth',0.25),0.15625);
+assert.strictEqual(E.easeProgress('linear',-1),0);
+assert.strictEqual(E.easeProgress('linear',2),1);
 const base={'transform.x':0,'transform.y':0,'transform.scale':1,'transform.rotation':0,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':0,'audio.fadeOut':0,'text.fontSize':120,'text.color':'#ffffff','paper.edge':14,'paper.roughness':45};
 const clip={id:'c1',kind:'video',dur:4,values:Object.assign({},base),scriptEnabled:true,scriptCode:'set transform.y = sin(time * 2) * 0.04\nset transform.opacity = clamp(1 - progress, 0, 1)'};
 let c=E.compileScript(clip,clip.scriptCode);assert.strictEqual(c.statements,2);assert.strictEqual(c.events,0);
@@ -55,4 +62,4 @@ assert.strictEqual(E.getScriptPreset(videoPreset.id).code,'set transform.x = 0.2
 assert.strictEqual(E.deleteScriptPreset(textPreset.id),true);
 assert.strictEqual(E.deleteScriptPreset(textPreset.id),false);
 assert.strictEqual(E.listScriptPresets().length,1);
-console.log('SnipScript v2 and project library tests passed.');
+console.log('SnipScript v2, project library and easing tests passed.');

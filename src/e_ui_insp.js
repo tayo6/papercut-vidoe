@@ -259,8 +259,61 @@ function tabScript(c, b) {
     h('option', { value: 'out', text: 'Ease out' }),
     h('option', { value: 'inout', text: 'Ease in and out' })
   ]);
+  var cueEaseInfo = {
+    smooth: { label: 'Smooth', description: 'A gradual start and finish.' },
+    linear: { label: 'Linear', description: 'Moves at a constant speed.' },
+    'in': { label: 'Ease in', description: 'Starts gently, then accelerates.' },
+    out: { label: 'Ease out', description: 'Starts quickly, then settles.' },
+    inout: { label: 'Ease in / out', description: 'Starts gently, speeds up, then settles.' }
+  };
+  var cueCurveCaption = h('span', { class: 'script-easing-caption' });
+  var cueCurve = h('div', { class: 'script-easing-curve', role: 'img' });
+  var cueCurvePanel = h('div', { class: 'script-easing-panel' }, [
+    h('div', { class: 'script-easing-head' }, [h('strong', { text: 'Curve preview' }), cueCurveCaption]),
+    cueCurve
+  ]);
+  function renderEaseCurve() {
+    var ease = cueEase.value, info = cueEaseInfo[ease] || cueEaseInfo.smooth, points = [];
+    for (var i = 0; i <= 32; i++) {
+      var x = i / 32, y = E.easeProgress(ease, x);
+      points.push((10 + x * 180).toFixed(2) + ',' + (68 - y * 58).toFixed(2));
+    }
+    cueCurve.innerHTML = '<svg viewBox="0 0 200 78" aria-hidden="true" focusable="false">' +
+      '<path class="script-easing-grid" d="M10 10H190 M10 39H190 M10 68H190 M10 10V68 M100 10V68 M190 10V68" />' +
+      '<path class="script-easing-guide" d="M10 68L190 10" />' +
+      '<polyline class="script-easing-line" points="' + points.join(' ') + '" />' +
+      '</svg>';
+    cueCurveCaption.textContent = info.label + ' · ' + info.description;
+    cueCurve.setAttribute('aria-label', info.label + ' easing curve. ' + info.description);
+  }
   var cueDurationField = h('label', { class: 'script-cue-field' }, [h('span', { text: 'Duration (seconds)' }), cueDuration]);
   var cueEaseField = h('label', { class: 'script-cue-field' }, [h('span', { text: 'Easing' }), cueEase]);
+  var cueTweenPresets = [
+    { name: 'Quick pop', duration: 0.24, ease: 'out', note: 'A quick move that settles smoothly.' },
+    { name: 'Soft settle', duration: 0.65, ease: 'smooth', note: 'A calm start and finish.' },
+    { name: 'Gentle drift', duration: 0.9, ease: 'inout', note: 'A gradual start, faster middle and soft finish.' },
+    { name: 'Steady move', duration: 0.5, ease: 'linear', note: 'Constant speed throughout.' }
+  ];
+  var cuePresetPanel = h('div', { class: 'script-tween-presets' });
+  cuePresetPanel.appendChild(h('div', { class: 'script-tween-presets-title', text: 'Quick tween presets' }));
+  cueTweenPresets.forEach(function (preset) {
+    var button = sb(preset.name, function () {
+      var at = Number(cueTime.value), remaining = c.dur - at;
+      if (!isFinite(at) || at < 0 || remaining < 0.01) {
+        status.textContent = 'Move the cue time earlier to make room for a tween.';
+        return;
+      }
+      var duration = Math.floor(Math.min(preset.duration, remaining) * 100) / 100;
+      if (duration < 0.01) { status.textContent = 'There is not enough clip time for this tween.'; return; }
+      cueMode.value = 'tween';
+      cueDuration.value = duration.toFixed(2);
+      cueEase.value = preset.ease;
+      updateCueMode();
+      status.textContent = preset.name + ' selected. Choose a target value, then add or update the cue.';
+    });
+    button.title = preset.note;
+    cuePresetPanel.appendChild(button);
+  });
   var cueEditingLine = 0;
   function cueField(label, input) {
     return h('label', { class: 'script-cue-field' }, [h('span', { text: label }), input]);
@@ -279,9 +332,13 @@ function tabScript(c, b) {
     var tween = cueMode.value === 'tween';
     cueDurationField.hidden = !tween;
     cueEaseField.hidden = !tween;
+    cuePresetPanel.hidden = !tween;
+    cueCurvePanel.hidden = !tween;
+    renderEaseCurve();
   }
   cueTarget.addEventListener('change', fillCueValue);
   cueMode.addEventListener('change', updateCueMode);
+  cueEase.addEventListener('change', renderEaseCurve);
   var cueAtPlayhead = sb('Use playhead', function () { cueTime.value = String(round(E.localT(c), 2)); fillCueValue(); });
   var cueAdd = sb('Add cue', function () { writeVisualCue(); });
   var cueCancel = sb('Cancel edit', function () { resetVisualCue(); });
@@ -402,6 +459,8 @@ function tabScript(c, b) {
     cueEaseField
   ]));
   cueEditor.appendChild(hint('For a tween, choose its duration and easing. The visual value field accepts numbers and six-digit hex colours; use the code editor for expressions.'));
+  cueEditor.appendChild(cuePresetPanel);
+  cueEditor.appendChild(cueCurvePanel);
   cueEditor.appendChild(h('div', { class: 'script-actions' }, [cueAtPlayhead, cueAdd, cueCancel]));
   cueCancel.hidden = true;
   cueEditor.appendChild(cueList);
