@@ -282,7 +282,7 @@ function tabScript(c, b) {
   }
   cueTarget.addEventListener('change', fillCueValue);
   cueMode.addEventListener('change', updateCueMode);
-  var cueAtPlayhead = sb('Use playhead', function () { cueTime.value = String(round(E.localT(c), 2)); });
+  var cueAtPlayhead = sb('Use playhead', function () { cueTime.value = String(round(E.localT(c), 2)); fillCueValue(); });
   var cueAdd = sb('Add cue', function () { writeVisualCue(); });
   var cueCancel = sb('Cancel edit', function () { resetVisualCue(); });
   function readCueLine(lineNumber) {
@@ -442,7 +442,7 @@ function tabScript(c, b) {
   });
   var loadPreset = sb('Load into editor', function () {
     var p = selectedPreset(); if (!p) { status.textContent = 'Choose a saved script first.'; return; }
-    ta.value = p.code; presetName.value = p.name;
+    ta.value = p.code; presetName.value = p.name; renderCueList();
     status.textContent = 'Loaded "' + p.name + '". Check it, then apply it to this clip.';
   });
   var applyPreset = sb('Apply selected', function () {
@@ -467,6 +467,7 @@ function tabScript(c, b) {
   refreshPresets('');
   b.appendChild(h('div', { class: 'script-actions' }, [example, check, apply, disable]));
   b.appendChild(ta);
+  b.appendChild(cueEditor);
   b.appendChild(library);
   b.appendChild(status);
   b.appendChild(sec('Available values'));
