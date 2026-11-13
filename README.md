@@ -35,11 +35,21 @@ Timed events and tweens run against the clip's local timeline:
     at 0.5s tween transform.scale = 1 over 0.4s ease out
     at 1s tween paper.edge = 45 over 0.5s ease inout
 
-Available variables: time (seconds since the clip starts), duration, progress (0–1), and pi. Math functions include sin, cos, tan, abs, min, max, clamp, lerp, round, floor, ceil, sqrt, pow, sign, and rgb.
+Available variables: time (seconds since the clip starts), duration, progress (0–1), and pi. Math functions include sin, cos, tan, abs, min, max, clamp, lerp, round, floor, ceil, sqrt, pow, sign, and rgb. Boolean literals `true` and `false` are supported for discrete switches; boolean properties use `set`, not `tween`.
+
+Papercut can be switched on and shaped by script, including its colour, detail, grain, boil and shadow:
+
+    at 0s set paper.enabled = true
+    at 0.2s tween paper.edge = 32 over 0.6s ease out
+    at 0.3s tween paper.grain = 75 over 0.8s ease inout
+    at 1s tween paper.color = #e6d7b8 over 0.5s ease linear
+    at 2s set paper.enabled = false
 
 Supported targets depend on clip type:
-- Image/video: transform.x, transform.y, transform.scale, transform.rotation, transform.opacity, paper.edge, paper.roughness.
+- Image/video: transform.x, transform.y, transform.scale, transform.rotation, transform.opacity, and all `paper.*` targets.
 - Text: the visual targets above, plus text.fontSize and text.color.
 - Audio/video sound: audio.volume, audio.fadeIn, audio.fadeOut.
+
+Papercut targets: `paper.enabled`, `paper.edge`, `paper.roughness`, `paper.detail`, `paper.grain`, `paper.color`, `paper.boil`, `paper.boilFps`, `paper.boilLoop`, `paper.shadow`, and `paper.shadowBlur`. Cut style and texture choices remain project/clip settings.
 
 Scripts evaluate without modifying original keyframe tracks or base clip properties. Preview and export use the same visual renderer; audio script curves are sampled into live and offline audio gain envelopes.
