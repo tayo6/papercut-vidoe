@@ -74,3 +74,40 @@ Open the Project tab with no clip selected to edit one script for the whole time
     at 1s clip c3 tween paper.edge = 40 over 0.5s ease inout
 
 `at` times refer to the project timeline, not the target clip's local time. Project expressions use `time`, `duration` and `progress` for the whole project. Project scripts can coordinate visual, papercut, text and audio properties across clips. When both project and clip scripts write the same property, the project script takes precedence. Project scripts run in preview and video export; audio properties are sampled into the live and offline audio mix.
+
+
+## Script-driven Project Builder
+
+Open the Project tab and use **Script-driven Project Builder** to create and arrange clips with a versioned JSON plan. This is a declarative plan, not JavaScript: the editor validates every track, media reference, timing value, overlap and property before changing the timeline. **Validate plan** only previews a summary; **Apply plan** makes one undoable change.
+
+The first version uses media already imported into the browser editor. The panel lists each imported Media ID. A clip can reference that ID (recommended) or an unambiguous media name. Named visual and audio tracks are created once and reused by name. Each clip has a stable alias; applying the same plan again updates those clips instead of duplicating them.
+
+Example (text only):
+
+    {
+      "version": 1,
+      "tracks": [
+        { "name": "Main Visuals", "kind": "video" }
+      ],
+      "clips": [
+        {
+          "alias": "opening-title",
+          "type": "text",
+          "content": "Your title",
+          "track": "Main Visuals",
+          "start": 0,
+          "duration": 3,
+          "properties": {
+            "transform.scale": 1,
+            "paper.enabled": true,
+            "paper.edge": 24
+          }
+        }
+      ]
+    }
+
+To create a clip from imported media, replace the text clip with an entry such as:
+
+    { "alias": "hero-shot", "media": "MEDIA_ID", "track": "Main Visuals", "start": 3, "duration": 4 }
+
+The track kind "video" declares a visual lane (images, video and text can use it); "audio" declares an audio lane. Clip times are absolute project seconds. A lane cannot contain overlapping clips. Supported initial properties are the same allow-listed transform, text, audio and papercut properties exposed by the editor. This version creates/updates clips and named tracks; importing files, deleting clips, scene grouping and arbitrary JavaScript execution are deliberately outside its scope.

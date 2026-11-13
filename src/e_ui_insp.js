@@ -1045,6 +1045,80 @@ function tabProject(c, b) {
   b.appendChild(projectStatus);
   b.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets support transform.*, paper.*, text.* and audio.* when available on that clip.'));
 
+
+  b.appendChild(sec('Script-driven Project Builder'));
+  b.appendChild(hint('Build tracks and place clips with a safe JSON plan. Import image, video or audio files first; this builder never reads files or runs JavaScript.'));
+  var planStarter = JSON.stringify({
+    version: 1,
+    tracks: [{ name: 'Main Visuals', kind: 'video' }],
+    clips: [{
+      alias: 'opening-title',
+      type: 'text',
+      content: 'Your title',
+      track: 'Main Visuals',
+      start: 0,
+      duration: 3,
+      properties: { 'transform.scale': 1, 'paper.enabled': true, 'paper.edge': 24 }
+    }]
+  }, null, 2);
+  var savedPlanCode = E.proj.projectPlanCode || '';
+  var planCode = h('textarea', { class: 'ti script-code project-plan-code', rows: 12, spellcheck: 'false', 'aria-label': 'Project builder JSON plan' });
+  planCode.value = savedPlanCode || planStarter;
+  var planDraft = planCode.value;
+  planCode.addEventListener('input', function () { planDraft = planCode.value; });
+  var planStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
+  var planAssets = h('div', { class: 'project-plan-assets', 'aria-label': 'Imported media references' });
+  function refreshPlanAssets() {
+    planAssets.textContent = '';
+    var ids = E.mediaList || [];
+    if (!ids.length) {
+      planAssets.appendChild(h('p', { class: 'hint', text: 'No media imported yet. Text-only plans work now; import media from the Media panel to create image, video and audio clips.' }));
+      return;
+    }
+    planAssets.appendChild(h('p', { class: 'hint', text: 'Use one of these Media IDs in a clip media field:' }));
+    ids.forEach(function (id) {
+      var media = E.media[id];
+      if (media) planAssets.appendChild(h('div', { class: 'project-plan-asset', text: id + ' — ' + (media.name || media.kind) + ' (' + media.kind + ')' }));
+    });
+  }
+  function planSummary(result) {
+    return 'Tracks: ' + result.tracksToCreate + ' new, ' + result.tracksToReuse + ' reused. Clips: ' + result.clipsToCreate + ' new, ' + result.clipsToUpdate + ' updated. Planned end: ' + result.timelineEnd.toFixed(2) + 's.';
+  }
+  var loadPlanExample = sb('Load example', function () {
+    planCode.value = planStarter; planDraft = planStarter;
+    planStatus.textContent = 'Example loaded. Edit it, then validate the plan.';
+  });
+  var validatePlan = sb('Validate plan', function () {
+    try {
+      var result = E.previewProjectPlan(planCode.value);
+      planStatus.textContent = 'Valid. No timeline changes have been made. ' + planSummary(result);
+    } catch (err) { planStatus.textContent = err.message || String(err); }
+  });
+  var applyPlan = sb('Apply plan', function () {
+    try {
+      var result = E.applyProjectPlan(planCode.value, planCode.value);
+      savedPlanCode = planCode.value; planDraft = savedPlanCode;
+      planStatus.textContent = 'Applied as one undoable project change. ' + planSummary(result);
+      U.toast('Project plan applied.');
+    } catch (err) { planStatus.textContent = err.message || String(err); }
+  });
+  var planPanel = h('div', { class: 'script-library project-plan' }, [
+    hint('A clip can use media: "MEDIA_ID" or type: "text" with content. Every clip needs a unique alias, start time and duration. A track kind is "video" (visual lane) or "audio".'),
+    planCode,
+    planAssets,
+    h('div', { class: 'script-actions' }, [loadPlanExample, validatePlan, applyPlan]),
+    planStatus
+  ]);
+  refreshPlanAssets();
+  bound.push(function () {
+    refreshPlanAssets();
+    var currentPlan = E.proj.projectPlanCode || '';
+    if (currentPlan !== savedPlanCode && document.activeElement !== planCode) {
+      savedPlanCode = currentPlan; planDraft = currentPlan || planStarter; planCode.value = planDraft;
+    }
+  });
+  b.appendChild(planPanel);
+
   b.appendChild(sec('Info'));
   var a = kv('Length', ''), z = kv('Clips', ''), y = kv('Size', ''); b.appendChild(a[0]); b.appendChild(z[0]); b.appendChild(y[0]);
   bound.push(function () { a[1].textContent = E.fmt(E.end(), true); z[1].textContent = String(E.proj.clips.length); y[1].textContent = E.proj.w + ' x ' + E.proj.h; }); bound[bound.length - 1]();
@@ -1090,6 +1164,7 @@ function onProject() { if (keyOf() !== curKey) build(); else syncSoon(); }
 E.on('sel', build);
 E.on('project', onProject);
 E.on('audio', onProject);
+E.on('media', onProject);
 E.on('wand', build);
 E.on('live', syncSoon);
 E.on('time', function () { var c = E.selClip(); if (c && E.hasKf(c)) syncSoon(); }); /* animated values follow the playhead */

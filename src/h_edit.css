@@ -437,3 +437,10 @@ body.ed-on .wrap { display: none; }
 .mke-dot { cursor: grab; touch-action: none; user-select: none; }
 .mke-dot:active { cursor: grabbing; }
 .mke-track { touch-action: pan-y; }
+
+
+/* Script-driven project builder */
+.ed .project-plan-assets { margin: 8px 0; padding: 8px; border: 1px solid var(--e-line); border-radius: 7px; background: var(--e-p2); max-height: 150px; overflow: auto; }
+.ed .project-plan-assets .hint { margin: 0 0 6px; }
+.ed .project-plan-asset { padding: 4px 0; border-top: 1px solid var(--e-line); font: 11px/1.45 var(--f-mono); overflow-wrap: anywhere; }
+.ed .project-plan-code { min-height: 230px; }
