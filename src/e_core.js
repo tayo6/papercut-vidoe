@@ -565,10 +565,6 @@ function prepareProjectPlan(input) {
   var clipInput = raw.clips;
   if (!Array.isArray(trackInput) || trackInput.length > 24) planFail('tracks must be an array of no more than 24 entries.');
   if (!Array.isArray(clipInput) || !clipInput.length || clipInput.length > 100) planFail('clips must contain between 1 and 100 entries.');
-  var trackInput = raw.tracks == null ? [] : raw.tracks;
-  var clipInput = raw.clips;
-  if (!Array.isArray(trackInput) || trackInput.length > 24) planFail('tracks must be an array of no more than 24 entries.');
-  if (!Array.isArray(clipInput) || !clipInput.length || clipInput.length > 100) planFail('clips must contain between 1 and 100 entries.');
   if (!E.proj) planFail('Open a project first.');
 
   var namedRows = Object.create(null), trackDefs = [], trackNames = Object.create(null);

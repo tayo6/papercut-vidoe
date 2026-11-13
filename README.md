@@ -110,7 +110,7 @@ To create a clip from imported media, replace the text clip with an entry such a
 
     { "alias": "hero-shot", "media": "MEDIA_ID", "track": "Main Visuals", "start": 3, "duration": 4 }
 
-The track kind "video" declares a visual lane (images, video and text can use it); "audio" declares an audio lane. Clip times are absolute project seconds. A lane cannot contain overlapping clips. Supported initial properties are the same allow-listed transform, text, audio and papercut properties exposed by the editor. This version creates/updates clips and named tracks; importing files, deleting clips, scene grouping and arbitrary JavaScript execution are deliberately outside its scope.
+The track kind "video" declares a visual lane (images, video and text can use it); "audio" declares an audio lane. Clip times are absolute project seconds. A lane cannot contain overlapping clips. Supported initial properties are the same allow-listed transform, text, audio and papercut properties exposed by the editor. Version 1 flat plans create and update clips and named tracks; use version 2 scene plans below to organize clips into scenes. Importing files, deleting content by omission and arbitrary JavaScript execution are deliberately outside the builder's scope.
 
 
 ## Scene-based Project Plans
