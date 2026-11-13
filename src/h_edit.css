@@ -317,3 +317,11 @@ body.ed-on .wrap { display: none; }
 .scrmk[data-mode="tween"]::before { background:#ffe0a8; border-color:#81521a; }
 .scrmk.off { opacity:.38; }
 .scrmk:hover { width:3px; margin-left:-1.5px; filter:brightness(1.2); }
+
+
+/* Project-level reusable SnipScript presets */
+.ed .script-library { margin: 12px 0; padding: 10px; border: 1px solid var(--e-line); border-radius: 9px; background: var(--e-p1); }
+.ed .script-library .hint { margin: 4px 0 9px; }
+.ed .script-library > .ti { width: 100%; margin: 4px 0; }
+.ed .script-library select.ti { min-height: 38px; }
+.ed .script-library .script-actions { margin-bottom: 0; }

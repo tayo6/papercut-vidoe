@@ -237,8 +237,63 @@ function tabScript(c, b) {
     q.scriptEnabled = false; E.dirty(); E.commit(); E.emit('project');
     status.textContent = 'Script disabled. Your code is still saved on this clip.';
   });
+
+  var library = h('div', { class: 'script-library' });
+  library.appendChild(sec('Project script library'));
+  library.appendChild(hint('Save named scripts in this project, then load or apply them to other compatible clips. Updating a name replaces that preset.'));
+  var presetName = h('input', { class: 'ti', type: 'text', maxlength: 48, placeholder: 'e.g. Gentle float', 'aria-label': 'Script preset name' });
+  var presetSelect = h('select', { class: 'ti', 'aria-label': 'Saved project scripts' });
+  function refreshPresets(selectedId) {
+    var list = E.listScriptPresets ? E.listScriptPresets() : [];
+    presetSelect.textContent = '';
+    presetSelect.appendChild(h('option', { value: '', text: list.length ? 'Choose a saved script…' : 'No saved scripts yet', disabled: true }));
+    list.forEach(function (p) {
+      presetSelect.appendChild(h('option', { value: p.id, text: p.name + ' (' + p.kind + ')' }));
+    });
+    presetSelect.value = selectedId || '';
+  }
+  function selectedPreset() { return E.getScriptPreset ? E.getScriptPreset(presetSelect.value) : null; }
+  presetSelect.addEventListener('change', function () {
+    var p = selectedPreset(); if (p) presetName.value = p.name;
+  });
+  var savePreset = sb('Save / update', function () {
+    var q = E.selClip(); if (!q || q.id !== c.id) return;
+    try {
+      var p = E.saveScriptPreset(presetName.value, q, ta.value);
+      refreshPresets(p.id);
+      E.dirty(); E.emit('project'); E.commit();
+      status.textContent = 'Saved "' + p.name + '" to this project (' + E.listScriptPresets().length + ' total).';
+      U.toast('Script preset saved to project.');
+    } catch (err) { status.textContent = err.message || String(err); }
+  });
+  var loadPreset = sb('Load into editor', function () {
+    var p = selectedPreset(); if (!p) { status.textContent = 'Choose a saved script first.'; return; }
+    ta.value = p.code; presetName.value = p.name;
+    status.textContent = 'Loaded "' + p.name + '". Check it, then apply it to this clip.';
+  });
+  var applyPreset = sb('Apply selected', function () {
+    var q = E.selClip(), p = selectedPreset(); if (!q || q.id !== c.id) return;
+    if (!p) { status.textContent = 'Choose a saved script first.'; return; }
+    try {
+      E.applyScriptPreset(p.id, q); ta.value = p.code; presetName.value = p.name;
+      E.dirty(); E.emit('project'); E.commit();
+      status.textContent = 'Applied "' + p.name + '" and enabled it on this clip.';
+      U.toast('Script preset applied.');
+    } catch (err) { status.textContent = err.message || String(err); }
+  });
+  var deletePreset = sb('Delete selected', function () {
+    var p = selectedPreset(); if (!p) { status.textContent = 'Choose a saved script first.'; return; }
+    if (!E.deleteScriptPreset(p.id)) return;
+    E.dirty(); E.emit('project'); E.commit(); refreshPresets('');
+    status.textContent = 'Deleted "' + p.name + '" from this project.';
+  });
+  library.appendChild(presetName);
+  library.appendChild(presetSelect);
+  library.appendChild(h('div', { class: 'script-actions' }, [savePreset, loadPreset, applyPreset, deletePreset]));
+  refreshPresets('');
   b.appendChild(h('div', { class: 'script-actions' }, [example, check, apply, disable]));
   b.appendChild(ta);
+  b.appendChild(library);
   b.appendChild(status);
   b.appendChild(sec('Available values'));
   b.appendChild(hint('time = seconds since this clip starts; duration = clip length in seconds; progress = 0 to 1; pi = π.'));
@@ -320,7 +375,7 @@ function tabsFor(c) {
 function keyOf() {
   var c = E.selClip(); if (!c) return 'none';
   var m = c.media && E.media[c.media];
-  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
+  var presets = E.listScriptPresets ? E.listScriptPresets().map(function (p) { return [p.id, p.name, p.kind, p.code].join(':'); }).join(';') : '';\n  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', presets, m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
 }
 function build() {
   if (building) return; building = true;

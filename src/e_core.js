@@ -40,7 +40,7 @@ E.rowKind = function (clip) { return clip.kind === 'audio' ? 'a' : 'v'; };
 E.newProject = function (ratio) {
   ratio = E.RATIOS[ratio] ? ratio : '16:9';
   var d = E.RATIOS[ratio];
-  E.proj = { name: 'Untitled', ratio: ratio, w: d[0], h: d[1], bg: { type: 'color', color: '#111111' }, rows: [], clips: [] };
+  E.proj = { name: 'Untitled', ratio: ratio, w: d[0], h: d[1], bg: { type: 'color', color: '#111111' }, rows: [], clips: [], scriptPresets: [] };
   E.proj.rows.push({ id: E.uid('r'), kind: 'v', hide: false, mute: false }, { id: E.uid('r'), kind: 'a', hide: false, mute: false });
   E.t = 0; E.sel = null; E.playing = false;
   E.resetHistory(); E.emit('project'); E.emit('sel'); E.dirty();
