@@ -991,7 +991,7 @@ function tabProject(c, b) {
 
 
   b.appendChild(sec('Unified project script'));
-  b.appendChild(hint('One source document builds scenes and tracks, then attaches clip, scene and project animation. Import media first; use its Media ID in the script. The existing separate editors remain available for older projects.'));
+  b.appendChild(hint('One source document builds scenes and tracks, then attaches clip, scene and project animation. Import media first; use its Media ID in the script. Importing a script only loads a draft; validate it before applying.'));
   var bundleStarter = JSON.stringify({
     version: 3,
     tracks: [{ name: 'Main Visuals', kind: 'video' }],
@@ -1010,21 +1010,86 @@ function tabProject(c, b) {
   var bundleCode = h('textarea', { class: 'ti script-code', rows: 16, spellcheck: 'false', 'aria-label': 'Unified project script' });
   bundleCode.value = E.proj.projectBundleCode || bundleStarter;
   var bundleStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
+  var bundleFile = h('input', { type: 'file', accept: '.snip,.json,application/json', 'aria-label': 'Import Snipwork project script' });
+  bundleFile.hidden = true;
+  function showBundleError(err) { bundleStatus.textContent = err && err.message ? err.message : String(err); }
+  function readBundleFile(file) {
+    if (file.size > 100000) return Promise.reject(new Error('Keep the project script file under 100 KB.'));
+    if (typeof file.text === 'function') return file.text();
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('Could not read that project script file.')); };
+      reader.readAsText(file);
+    });
+  }
+  bundleFile.addEventListener('change', function () {
+    var file = bundleFile.files && bundleFile.files[0];
+    bundleFile.value = '';
+    if (!file) return;
+    readBundleFile(file).then(function (source) {
+      bundleCode.value = source;
+      bundleStatus.textContent = 'Imported "' + file.name + '" as a draft. Validate the entire project before applying it.';
+    }).catch(showBundleError);
+  });
+  var importBundle = sb('Import .snip file', function () { bundleFile.click(); });
+  var copyBundle = sb('Copy script', function () {
+    var source = bundleCode.value || '';
+    function fallbackCopy() {
+      bundleCode.focus(); bundleCode.select();
+      var copied = false;
+      try { copied = !!document.execCommand('copy'); } catch (err) { copied = false; }
+      bundleStatus.textContent = copied ? 'Project script copied.' : 'Script selected. Use your device Copy command to copy it.';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(source).then(function () {
+        bundleStatus.textContent = 'Project script copied to the clipboard.';
+      }).catch(fallbackCopy);
+    } else fallbackCopy();
+  });
+  var downloadBundle = sb('Download .snip file', function () {
+    var source = bundleCode.value || '';
+    if (!source.trim()) { bundleStatus.textContent = 'There is no project script to download.'; return; }
+    var safeName = String(E.proj.name || 'snipwork-project').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'snipwork-project';
+    var blob = new Blob([source], { type: 'application/json;charset=utf-8' });
+    var url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = safeName + '.snip'; link.style.display = 'none';
+    document.body.appendChild(link); link.click();
+    window.setTimeout(function () {
+      URL.revokeObjectURL(url);
+      if (link.parentNode) link.parentNode.removeChild(link);
+    }, 1500);
+    bundleStatus.textContent = 'Downloading ' + safeName + '.snip. The file contains the current editor draft.';
+  });
+  var restoreBundle = sb('Load last applied', function () {
+    if (!E.proj.projectBundleCode) { bundleStatus.textContent = 'This project has no previously applied unified script.'; return; }
+    bundleCode.value = E.proj.projectBundleCode;
+    bundleStatus.textContent = 'Loaded the last applied project script as the current draft.';
+  });
   var checkBundle = sb('Validate entire project', function () {
     try {
       var result = E.compileUnifiedProject(bundleCode.value);
       bundleStatus.textContent = 'Valid: ' + result.scenes.length + ' scenes, ' + result.items.length + ' clips, ' + result.scriptStatements + ' animation statements. No timeline changes made.';
-    } catch (err) { bundleStatus.textContent = err.message || String(err); }
+    } catch (err) { showBundleError(err); }
   });
-  var applyBundle = sb('Apply project script', function () {
+  function applyBundle(preview) {
     try {
       var result = E.applyUnifiedProject(bundleCode.value);
       bundleStatus.textContent = 'Applied as one undoable change: ' + result.scenes.length + ' scenes, ' + result.items.length + ' clips, ' + result.scriptStatements + ' animation statements.';
       U.toast('Unified project applied.');
-    } catch (err) { bundleStatus.textContent = err.message || String(err); }
-  });
+      if (preview) {
+        E.seek(0);
+        E.play();
+        bundleStatus.textContent += ' Preview is playing from the beginning.';
+      }
+    } catch (err) { showBundleError(err); }
+  }
+  var applyBundleButton = sb('Apply project script', function () { applyBundle(false); });
+  var applyPreviewBundle = sb('Apply & Preview', function () { applyBundle(true); });
+  b.appendChild(bundleFile);
   b.appendChild(bundleCode);
-  b.appendChild(h('div', { class: 'script-actions' }, [checkBundle, applyBundle]));
+  b.appendChild(h('div', { class: 'script-actions' }, [importBundle, copyBundle, downloadBundle, restoreBundle]));
+  b.appendChild(h('div', { class: 'script-actions' }, [checkBundle, applyBundleButton, applyPreviewBundle]));
   b.appendChild(bundleStatus);
   bound.push(function () {
     if (document.activeElement !== bundleCode && E.proj.projectBundleCode && bundleCode.value !== E.proj.projectBundleCode) bundleCode.value = E.proj.projectBundleCode;
