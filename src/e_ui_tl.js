@@ -7,6 +7,16 @@ var HEAD = 46, RH = { v: 56, a: 40 }, pps = 80, snapOn = true, W = 0;
 var clipEls = {}, rowEls = {}, laneEls = {}, phEl = null, guideEl = null, ghostEl = null, newEl = null, drag = null, scrub = null;
 var STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
 TL.pps = function () { return pps; };
+TL.addTrack = function (kind) {
+  if (kind !== 'v' && kind !== 'a') throw new TypeError('Track kind must be video or audio.');
+  var row = E.addRow(kind, kind === 'v' ? 'top' : 'bottom');
+  E.emit('project'); E.dirty(); E.commit();
+  return row;
+};
+[ ['tlAddVideo', 'v'], ['tlAddAudio', 'a'] ].forEach(function (item) {
+  var button = $(item[0]);
+  if (button) button.addEventListener('click', function () { TL.addTrack(item[1]); });
+});
 
 function timeAt(clientX) { return (clientX - inner.getBoundingClientRect().left - HEAD) / pps; }
 function labelOf(c) { return c.kind === 'text' ? ((c.text.str || 'Text').split('\n')[0] || 'Text') : (c.name || 'Clip'); }
@@ -97,7 +107,8 @@ function buildClip(c) {
 function buildRow(r) {
   var row = h('div', { class: 'tl-row rk-' + r.kind + ((r.kind === 'v' ? r.hide : r.mute) ? ' off' : ''), 'data-row': r.id, style: { height: RH[r.kind] + 'px' } });
   var off = r.kind === 'v' ? r.hide : r.mute, nm = r.kind === 'v' ? (off ? 'Show track' : 'Hide track') : (off ? 'Unmute track' : 'Mute track');
-  row.appendChild(h('div', { class: 'tl-head' }, [h('button', { class: 'rb', type: 'button', title: nm, 'aria-label': nm, 'aria-pressed': String(!!off), html: U.ic(r.kind === 'v' ? (off ? 'eyeoff' : 'eye') : (off ? 'mute' : 'vol'), 16), onclick: function () { E.setRowFlag(r.id, r.kind === 'v' ? 'hide' : 'mute'); } })]));
+  var peers = E.proj.rows.filter(function (x) { return x.kind === r.kind; }), trackNo = peers.indexOf(r) + 1;
+  row.appendChild(h('div', { class: 'tl-head' }, [h('span', { class: 'tl-track-name', text: (r.kind === 'v' ? 'V' : 'A') + trackNo, title: (r.kind === 'v' ? 'Video' : 'Audio') + ' track ' + trackNo }), h('button', { class: 'rb', type: 'button', title: nm, 'aria-label': nm, 'aria-pressed': String(!!off), html: U.ic(r.kind === 'v' ? (off ? 'eyeoff' : 'eye') : (off ? 'mute' : 'vol'), 16), onclick: function () { E.setRowFlag(r.id, r.kind === 'v' ? 'hide' : 'mute'); } })]));
   var lane = h('div', { class: 'tl-lane', style: { width: W + 'px' } });
   lane.addEventListener('click', function (e) { if (e.target !== lane) return; E.select(null); E.pause(); E.seek(Math.max(0, timeAt(e.clientX))); });
   E.rowClips(r.id).forEach(function (c) { lane.appendChild(buildClip(c)); });
