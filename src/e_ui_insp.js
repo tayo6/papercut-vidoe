@@ -988,6 +988,63 @@ function tabProject(c, b) {
   b.appendChild(pr);
   bound.push(function () { var t = E.proj.bg.type; pb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === t)); }); if (E.proj.bg.type === 'color' && /^#[0-9a-f]{6}$/i.test(E.proj.bg.color)) bc.value = E.proj.bg.color; }); bound[bound.length - 1]();
   b.appendChild(hint('The background shows behind every clip. Add a photo on the bottom track to use a picture instead.'));
+
+  b.appendChild(sec('Project animation script'));
+  b.appendChild(hint('Animate several clips from one shared project clock. Each line targets a clip by ID; project time starts at 0 and runs to the end of the timeline.'));
+  var projectTargets = h('select', { class: 'es', 'aria-label': 'Choose a clip to target' });
+  function refreshProjectTargets() {
+    projectTargets.textContent = '';
+    E.proj.clips.forEach(function (q) { projectTargets.appendChild(h('option', { value: q.id, text: (q.name || q.kind) + ' · ' + q.id })); });
+    projectTargets.disabled = !E.proj.clips.length;
+  }
+  var projectCode = h('textarea', { class: 'ti script-code', rows: 8, spellcheck: 'false', 'aria-label': 'Project SnipScript code' });
+  projectCode.value = E.proj.projectScriptCode || '';
+  var projectStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
+  function projectInsert(text) {
+    var old = projectCode.value || '';
+    projectCode.value = (old && !old.endsWith('\n') ? old + '\n' : old) + text;
+    projectCode.focus(); projectCode.setSelectionRange(projectCode.value.length, projectCode.value.length);
+    projectStatus.textContent = 'Script added to the draft. Check it, then Apply & enable.';
+  }
+  var insertTarget = h('button', { class: 'eb', type: 'button', text: 'Insert continuous target', onclick: function () {
+    if (!projectTargets.value) { projectStatus.textContent = 'Add a clip to the timeline first.'; return; }
+    projectInsert('clip ' + projectTargets.value + ' set transform.y = sin(time * 2) * 0.04');
+  } });
+  var insertTween = h('button', { class: 'eb', type: 'button', text: 'Insert tween example', onclick: function () {
+    if (!projectTargets.value) { projectStatus.textContent = 'Add a clip to the timeline first.'; return; }
+    projectInsert('at 0s clip ' + projectTargets.value + ' set transform.scale = 0.7\nat 0.25s clip ' + projectTargets.value + ' tween transform.scale = 1 over 0.6s ease out');
+  } });
+  var checkProject = h('button', { class: 'eb', type: 'button', text: 'Check project script', onclick: function () {
+    try {
+      var result = E.compileProjectScript(projectCode.value);
+      projectStatus.textContent = 'Valid: ' + result.statements + ' statements across ' + result.targets.length + ' clips.';
+    } catch (err) { projectStatus.textContent = err.message || String(err); }
+  } });
+  var applyProject = h('button', { class: 'eb acc', type: 'button', text: 'Apply & enable', onclick: function () {
+    try {
+      E.compileProjectScript(projectCode.value);
+      E.proj.projectScriptCode = projectCode.value; E.proj.projectScriptEnabled = true;
+      E.dirty(); E.commit(); E.emit('project');
+      projectStatus.textContent = 'Project script enabled. It runs in preview and video export.';
+      U.toast('Project SnipScript enabled.');
+    } catch (err) { projectStatus.textContent = err.message || String(err); }
+  } });
+  var disableProject = h('button', { class: 'eb', type: 'button', text: 'Disable', onclick: function () {
+    E.proj.projectScriptEnabled = false; E.dirty(); E.commit(); E.emit('project');
+    projectStatus.textContent = 'Project script disabled. The code is still saved.';
+  } });
+  refreshProjectTargets();
+  bound.push(function () {
+    refreshProjectTargets();
+    if (document.activeElement !== projectCode) projectCode.value = E.proj.projectScriptCode || '';
+    projectStatus.textContent = E.proj.projectScriptEnabled ? 'Project script is enabled.' : 'Project script is disabled. Apply & enable to run it.';
+  });
+  b.appendChild(projectTargets);
+  b.appendChild(projectCode);
+  b.appendChild(h('div', { class: 'script-actions' }, [insertTarget, insertTween, checkProject, applyProject, disableProject]));
+  b.appendChild(projectStatus);
+  b.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets support transform.*, paper.*, text.* and audio.* when available on that clip.'));
+
   b.appendChild(sec('Info'));
   var a = kv('Length', ''), z = kv('Clips', ''), y = kv('Size', ''); b.appendChild(a[0]); b.appendChild(z[0]); b.appendChild(y[0]);
   bound.push(function () { a[1].textContent = E.fmt(E.end(), true); z[1].textContent = String(E.proj.clips.length); y[1].textContent = E.proj.w + ' x ' + E.proj.h; }); bound[bound.length - 1]();
@@ -1006,7 +1063,9 @@ function keyOf() {
   var c = E.selClip(); if (!c) return 'none';
   var m = c.media && E.media[c.media];
   var presets = E.listScriptPresets ? E.listScriptPresets().map(function (p) { return [p.id, p.name, p.kind, p.code].join(':'); }).join(';') : '';
-  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', presets, m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
+  var project = E.proj || {};
+  var projectTargets = (project.clips || []).map(function (q) { return [q.id, q.name, q.kind].join(':'); }).join(';');
+  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', presets, m && m.buffer ? 1 : 0, U.wand ? 1 : 0, project.projectScriptEnabled ? 1 : 0, project.projectScriptCode || '', projectTargets].join('|');
 }
 function build() {
   if (building) return; building = true;

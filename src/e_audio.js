@@ -36,20 +36,17 @@ function applyEnv(gp, c, tStart, rel) {
   for (var i = 0; i < pts.length; i++) if (pts[i][0] > rel + 1e-6) gp.linearRampToValueAtTime(pts[i][1], tStart + pts[i][0]);
 }
 function hasScriptAudio(c) {
-  return !!(E.hasClipScriptTarget && (
-    E.hasClipScriptTarget(c, 'audio.volume') ||
-    E.hasClipScriptTarget(c, 'audio.fadeIn') ||
-    E.hasClipScriptTarget(c, 'audio.fadeOut')
-  ));
+  var ids = ['audio.volume', 'audio.fadeIn', 'audio.fadeOut'];
+  return ids.some(function (id) { return (E.hasClipScriptTarget && E.hasClipScriptTarget(c, id)) || (E.hasProjectScriptTarget && E.hasProjectScriptTarget(c, id)); });
 }
 function applyScriptEnv(gp, c, when, rel, span) {
   var count = Math.max(2, Math.min(18001, Math.ceil(span * 30) + 1)), curve = new Float32Array(count);
   for (var i = 0; i < count; i++) {
-    var local = rel + span * i / (count - 1), frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, local) : null;
-    var changes = frame && frame.scriptedValues || {}, a = frame && frame.audio;
-    var vol = Object.prototype.hasOwnProperty.call(changes, 'audio.volume') ? a.volume : c.vol;
-    var fi = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeIn') ? a.fadeIn : c.fadeIn;
-    var fo = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeOut') ? a.fadeOut : c.fadeOut;
+    var local = rel + span * i / (count - 1), frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, local) : null, projectFrame = E.runProjectScriptFrame ? E.runProjectScriptFrame(c, c.start + local) : null;
+    var changes = Object.assign({}, frame && frame.scriptedValues || {}, projectFrame && projectFrame.scriptedValues || {});
+    var vol = Object.prototype.hasOwnProperty.call(changes, 'audio.volume') ? changes['audio.volume'] : c.vol;
+    var fi = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeIn') ? changes['audio.fadeIn'] : c.fadeIn;
+    var fo = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeOut') ? changes['audio.fadeOut'] : c.fadeOut;
     var fadeIn = Math.min(Math.max(0, fi || 0), c.dur), fadeOut = Math.min(Math.max(0, fo || 0), Math.max(0, c.dur - fadeIn));
     var gain = Math.max(0, vol || 0);
     if (fadeIn > 0 && local < fadeIn) gain *= local / fadeIn;

@@ -211,7 +211,7 @@ function baseScale(c, src, w, h) {
 /* Box the clip occupies on a w x h frame, for the on-canvas handles: centre, size, rotation (static transform only). */
 E.boxOf = function (c, w, h, T) {
   var lt = T == null ? E.localT(c) : T - c.start;
-  var frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null;
+  var frame = scriptedFrame(c, T);
   c = scriptedClip(c, frame);
   var needPaper = c.cut.on, src;
   try { src = sourceOf(c, c.start, needPaper, false); } catch (e) { src = null; }
@@ -224,6 +224,13 @@ E.boxOf = function (c, w, h, T) {
   return { cx: w / 2 + tf.x * w + ox * cr - oy * sr, cy: h / 2 + tf.y * h + ox * sr + oy * cr, bw: (src.w - padPx * 2) * src.k * s, bh: (src.h - padPx * 2) * src.k * s, rot: rot };
 };
 
+function scriptedFrame(c, T) {
+  var timelineTime = T == null ? E.t : T, lt = timelineTime - c.start, values = Object.create(null), local = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null, project = E.runProjectScriptFrame ? E.runProjectScriptFrame(c, timelineTime) : null;
+  if (local && local.scriptedValues) Object.keys(local.scriptedValues).forEach(function (id) { values[id] = local.scriptedValues[id]; });
+  if (project && project.scriptedValues) Object.keys(project.scriptedValues).forEach(function (id) { values[id] = project.scriptedValues[id]; });
+  if (!Object.keys(values).length) return null;
+  var frame = E.evaluateProperties(c, lt, values); frame.scriptedValues = values; return frame;
+}
 function scriptedClip(c, frame) {
   return E.applyScriptedProperties ? E.applyScriptedProperties(c, frame) : c;
 }
@@ -242,7 +249,7 @@ function tearPath(ctx, hw, hh, e, edge) {
 }
 
 function drawClip(ctx, w, h, c, T) {
-  var lt = T - c.start, frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null;
+  var lt = T - c.start, frame = scriptedFrame(c, T);
   c = scriptedClip(c, frame);
   var st = animState(c, lt), tf = E.tfAt(c, lt), cut = c.cut;
   if (frame && frame.transform) { tf.x = frame.transform.x; tf.y = frame.transform.y; tf.s = frame.transform.scale; tf.r = frame.transform.rotation; tf.o = frame.transform.opacity; }
