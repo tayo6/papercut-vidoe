@@ -58,14 +58,14 @@ assert.strictEqual(f.transform.scale,0.125);
 assert.strictEqual(f.transform.rotation,0);
 assert.strictEqual(f.transform.opacity,1);
 const loopClip=Object.assign({},clip,{scriptCode:[
- 'set transform.x = pingpong(time, 2)',
+ 'set transform.x = pingpong(time, 2) / 2',
  'set transform.y = triangle(time, 2)',
  'set transform.scale = smoothstep(0, 1, 0.5)',
  'set transform.rotation = wrap(-1, 0, 3)',
  'set transform.opacity = remap(5, 0, 10, 0, 1)'
 ].join('\n')});
 f=E.runClipScriptFrame(loopClip,2.5);
-assert.strictEqual(f.transform.x,1.5);
+assert.strictEqual(f.transform.x,0.75);
 assert.strictEqual(f.transform.y,0.5);
 assert.strictEqual(f.transform.scale,0.5);
 assert.strictEqual(f.transform.rotation,2);
