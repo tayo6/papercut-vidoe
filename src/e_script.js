@@ -112,7 +112,7 @@ function namedEase(f,mode,k){
  return k<0.5?(1-namedEase(f,'out',1-2*k))/2:(1+namedEase(f,'out',2*k-1))/2;
 }
 E.easeProgress=function(ease,progress){
- var k=Number(progress);if(!isFinite(k))k=0;k=Math.max(0,Math.min(1,k));
+ var k=Number(progress);if(!isFinite(k))k=0;k=Math.max(0,Math.min(1,k));if(k===0||k===1)return k;
  if(ease==='linear')return k;
  if(ease==='in')return k*k;
  if(ease==='out')return 1-(1-k)*(1-k);
