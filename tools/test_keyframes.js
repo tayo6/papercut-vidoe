@@ -54,3 +54,22 @@ assert.throws(() => E.saveMotionPreset('Empty', E.newClip('image')), /at least o
 assert.equal(E.deleteMotionPreset(saved.id), true);
 assert.equal(E.deleteMotionPreset(saved.id), false);
 console.log('Visual keyframe editing and motion preset tests passed.');
+
+const bezierClip = E.newClip('image', { dur: 4 });
+E.addKf(bezierClip, 'x', 0);
+E.addKf(bezierClip, 'x', 2);
+E.updateKf(bezierClip, 'x', 0, { v: 0 });
+E.updateKf(bezierClip, 'x', 1, { v: 1, e: { type: 'bezier', x1: 0.25, y1: 0.1, x2: 0.25, y2: 1 } });
+assert(Math.abs(E.tfAt(bezierClip, 1).x - 0.8024024) < 1e-5);
+assert.throws(() => E.updateKf(bezierClip, 'x', 0, { e: { type: 'bezier', x1: 1.2, y1: 0, x2: 0.2, y2: 1 } }), /Bezier X control points/);
+assert.throws(() => E.updateKf(bezierClip, 'x', 0, { e: { type: 'bezier', x1: 0.2, y1: 2, x2: 0.8, y2: 1 } }), /Bezier Y control points/);
+const splitSource = E.newClip('image', { dur: 4 });
+E.proj.clips.push(splitSource);
+E.addKf(splitSource, 's', 0);
+E.updateKf(splitSource, 's', 0, { v: 0.6, e: { type: 'bezier', x1: 0.3, y1: 0.2, x2: 0.7, y2: 1.1 } });
+E.addKf(splitSource, 's', 2);
+const splitRight = E.splitClip(splitSource.id, 1);
+assert.equal(splitRight.kf.s[0].e.type, 'bezier');
+assert.equal(splitRight.kf.s[0].e.y2, 1.1);
+
+console.log('Per-keyframe Bezier easing tests passed.');

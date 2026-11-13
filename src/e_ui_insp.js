@@ -233,9 +233,92 @@ function motionEditor(c) {
     var ease = h('select', { class: 'es', 'aria-label': 'Easing to next keyframe' }, [
       h('option', { value: 'ease', text: 'Smooth' }),
       h('option', { value: 'lin', text: 'Linear' }),
-      h('option', { value: 'hold', text: 'Hold' })
+      h('option', { value: 'hold', text: 'Hold' }),
+      h('option', { value: 'bezier', text: 'Custom Bezier' })
     ]);
-    ease.value = key.e || 'ease';
+    var curvePanel = h('div', { class: 'mke-bezier-panel' });
+    var curveView = h('div', { class: 'mke-bezier-curve', role: 'img' });
+    var curveInputs = {
+      x1: h('input', { class: 'num', type: 'number', min: 0, max: 1, step: 0.01, 'aria-label': 'Bezier first control X' }),
+      y1: h('input', { class: 'num', type: 'number', min: -0.25, max: 1.25, step: 0.01, 'aria-label': 'Bezier first control Y' }),
+      x2: h('input', { class: 'num', type: 'number', min: 0, max: 1, step: 0.01, 'aria-label': 'Bezier second control X' }),
+      y2: h('input', { class: 'num', type: 'number', min: -0.25, max: 1.25, step: 0.01, 'aria-label': 'Bezier second control Y' })
+    };
+    function curveFor(k) {
+      if (k && k.e && typeof k.e === 'object' && k.e.type === 'bezier') return E.normalizeKfEase(k.e);
+      return { type: 'bezier', x1: 0.25, y1: 0.1, x2: 0.25, y2: 1 };
+    }
+    function readCurve() {
+      var raw = [curveInputs.x1.value, curveInputs.y1.value, curveInputs.x2.value, curveInputs.y2.value];
+      if (raw.some(function (v) { return String(v).trim() === ''; })) throw new Error('Enter four finite Bezier control values.');
+      return E.normalizeKfEase({ type: 'bezier', x1: Number(raw[0]), y1: Number(raw[1]), x2: Number(raw[2]), y2: Number(raw[3]) });
+    }
+    function paintCurve(curve) {
+      var points = [];
+      for (var i = 0; i <= 40; i++) {
+        var x = i / 40, y = E.cubicBezierProgress(curve, x);
+        points.push((10 + x * 180).toFixed(2) + ',' + (65 - y * 44).toFixed(2));
+      }
+      var p1x = 10 + curve.x1 * 180, p1y = 65 - curve.y1 * 44, p2x = 10 + curve.x2 * 180, p2y = 65 - curve.y2 * 44;
+      var controls = '<path class="mke-bezier-arms" d="M10 65L' + p1x.toFixed(2) + ' ' + p1y.toFixed(2) + ' M190 21L' + p2x.toFixed(2) + ' ' + p2y.toFixed(2) + '" />' +
+        '<circle class="mke-bezier-handle" data-mke-handle="1" cx="' + p1x.toFixed(2) + '" cy="' + p1y.toFixed(2) + '" r="6" />' +
+        '<circle class="mke-bezier-handle" data-mke-handle="2" cx="' + p2x.toFixed(2) + '" cy="' + p2y.toFixed(2) + '" r="6" />';
+      curveView.innerHTML = '<svg viewBox="0 0 200 78" aria-hidden="true" focusable="false">' +
+        '<path class="mke-bezier-grid" d="M10 10H190 M10 43H190 M10 76H190 M10 10V76 M100 10V76 M190 10V76" />' +
+        '<path class="mke-bezier-guide" d="M10 65L190 21" />' + controls +
+        '<polyline class="mke-bezier-line" points="' + points.join(' ') + '" /></svg>';
+      curveView.setAttribute('aria-label', 'Custom cubic Bezier easing curve. Drag either control point or use the four numeric fields.');
+    }
+    function updateInputs(curve) {
+      curveInputs.x1.value = String(curve.x1); curveInputs.y1.value = String(curve.y1);
+      curveInputs.x2.value = String(curve.x2); curveInputs.y2.value = String(curve.y2);
+    }
+    function writeCurve(commit) {
+      try {
+        var curve = readCurve(), latest = currentKey();
+        if (!latest) throw new Error('The selected keyframe no longer exists.');
+        E.updateKf(c, selected.p, latest.index, { e: curve });
+        E.dirty(); U.live(); paintCurve(curve);
+        if (commit) { E.emit('project'); E.commit(); setStatus('Custom Bezier curve updated.'); render(); }
+      } catch (err) { setStatus(err.message || String(err)); }
+    }
+    var curveDrag = 0;
+    function curveFromPointer(e) {
+      var svg = curveView.querySelector('svg'); if (!svg) return;
+      var rect = svg.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+      var scale = Math.min(rect.width / 200, rect.height / 78); if (!scale) return;
+      var drawW = 200 * scale, drawH = 78 * scale, offsetX = (rect.width - drawW) / 2, offsetY = (rect.height - drawH) / 2;
+      var sx = clamp((e.clientX - rect.left - offsetX) / scale, 10, 190);
+      var sy = clamp((e.clientY - rect.top - offsetY) / scale, 10, 76);
+      var x = Math.round(clamp((sx - 10) / 180, 0, 1) * 1000) / 1000;
+      var y = Math.round(clamp((65 - sy) / 44, -0.25, 1.25) * 1000) / 1000;
+      curveInputs['x' + curveDrag].value = String(x);
+      curveInputs['y' + curveDrag].value = String(y);
+      writeCurve(false);
+    }
+    curveView.addEventListener('pointerdown', function (e) {
+      var handle = e.target && e.target.getAttribute && e.target.getAttribute('data-mke-handle');
+      if (handle !== '1' && handle !== '2') return;
+      curveDrag = Number(handle);
+      if (curveView.setPointerCapture) { try { curveView.setPointerCapture(e.pointerId); } catch (err) {} }
+      e.preventDefault();
+    });
+    curveView.addEventListener('pointermove', function (e) { if (curveDrag) { curveFromPointer(e); e.preventDefault(); } });
+    function endCurveDrag(e) {
+      if (!curveDrag) return;
+      curveDrag = 0;
+      if (curveView.releasePointerCapture && curveView.hasPointerCapture && curveView.hasPointerCapture(e.pointerId)) { try { curveView.releasePointerCapture(e.pointerId); } catch (err) {} }
+      writeCurve(true);
+    }
+    curveView.addEventListener('pointerup', endCurveDrag);
+    curveView.addEventListener('pointercancel', endCurveDrag);
+    Object.keys(curveInputs).forEach(function (name) { curveInputs[name].addEventListener('change', function () { writeCurve(true); }); });
+    function showCurvePanel() {
+      var isBezier = ease.value === 'bezier';
+      curvePanel.hidden = !isBezier;
+      if (isBezier) { var curve = curveFor(key); updateInputs(curve); paintCurve(curve); }
+    }
+    ease.value = key.e && typeof key.e === 'object' && key.e.type === 'bezier' ? 'bezier' : (key.e || 'ease');
     function save(patch) {
       try {
         var result = E.updateKf(c, selected.p, idx, patch);
@@ -245,7 +328,10 @@ function motionEditor(c) {
     }
     time.addEventListener('change', function () { save({ t: Number(time.value) }); });
     value.addEventListener('change', function () { save({ v: Number(value.value) }); });
-    ease.addEventListener('change', function () { save({ e: ease.value }); });
+    ease.addEventListener('change', function () {
+      if (ease.value === 'bezier') save({ e: curveFor(key) });
+      else save({ e: ease.value });
+    });
     var jump = sb('Jump to keyframe', function () { var q = currentKey(); if (q) { E.pause(); E.seek(c.start + q.key.t); } });
     var remove = sb('Delete keyframe', function () {
       var q = currentKey(); if (!q) return;
@@ -256,7 +342,18 @@ function motionEditor(c) {
       h('div', { class: 'mke-field' }, [h('label', { text: info.label + ' value' }), value]),
       h('div', { class: 'mke-field' }, [h('label', { text: 'Easing to next' }), ease])
     ]));
+    curvePanel.appendChild(hint('Drag either control point to shape the motion between this keyframe and the next one. Control X is 0–1; control Y is -0.25–1.25.'));
+    curvePanel.appendChild(curveView);
+    curvePanel.appendChild(h('div', { class: 'mke-bezier-grid' }, [
+      h('label', { class: 'mke-field' }, [h('span', { text: 'Control X1' }), curveInputs.x1]),
+      h('label', { class: 'mke-field' }, [h('span', { text: 'Control Y1' }), curveInputs.y1]),
+      h('label', { class: 'mke-field' }, [h('span', { text: 'Control X2' }), curveInputs.x2]),
+      h('label', { class: 'mke-field' }, [h('span', { text: 'Control Y2' }), curveInputs.y2])
+    ]));
+    curvePanel.appendChild(hint('The curve affects the segment starting at this keyframe. The last keyframe has no following segment.'));
+    detail.appendChild(curvePanel);
     detail.appendChild(h('div', { class: 'mke-actions' }, [jump, remove]));
+    showCurvePanel();
   }
   function refreshPresets() {
     var old = presetSelect.value, list = E.listMotionPresets ? E.listMotionPresets() : [];

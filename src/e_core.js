@@ -172,7 +172,32 @@ E.setDuration = function (id, dur) {
   c.dur = clamp(dur, E.MIN, maxEnd - c.start); E.emit('project'); E.dirty();
 };
 /* ---------- keyframes ---------- */
-function easeU(u, e) { return e === 'hold' ? 0 : e === 'lin' ? u : u * u * (3 - 2 * u); }
+function bezierCoord(t, a, b) { var u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; }
+E.cubicBezierProgress = function (curve, progress) {
+  if (!curve || typeof curve !== 'object') throw new TypeError('A Bezier curve is required.');
+  var x1 = Number(curve.x1), y1 = Number(curve.y1), x2 = Number(curve.x2), y2 = Number(curve.y2);
+  if (![x1, y1, x2, y2].every(function (v) { return isFinite(v); }) || x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1 || y1 < -0.25 || y1 > 1.25 || y2 < -0.25 || y2 > 1.25) throw new RangeError('Bezier control points are outside the supported range.');
+  var k = Number(progress); if (!isFinite(k)) k = 0; k = clamp(k, 0, 1);
+  if (k === 0 || k === 1) return k;
+  var low = 0, high = 1, t = 0.5;
+  for (var i = 0; i < 20; i++) { t = (low + high) / 2; if (bezierCoord(t, x1, x2) < k) low = t; else high = t; }
+  return bezierCoord((low + high) / 2, y1, y2);
+};
+function normaliseKfEase(e) {
+  if (e === 'ease' || e === 'lin' || e === 'hold') return e;
+  if (!e || typeof e !== 'object' || (e.type && e.type !== 'bezier')) throw new TypeError('Choose Smooth, Linear, Hold or a custom Bezier curve.');
+  var curve = { type: 'bezier', x1: Number(e.x1), y1: Number(e.y1), x2: Number(e.x2), y2: Number(e.y2) };
+  if (![curve.x1, curve.y1, curve.x2, curve.y2].every(function (v) { return isFinite(v); })) throw new TypeError('Bezier control points must be finite numbers.');
+  if (curve.x1 < 0 || curve.x1 > 1 || curve.x2 < 0 || curve.x2 > 1) throw new RangeError('Bezier X control points must be between 0 and 1.');
+  if (curve.y1 < -0.25 || curve.y1 > 1.25 || curve.y2 < -0.25 || curve.y2 > 1.25) throw new RangeError('Bezier Y control points must be between -0.25 and 1.25.');
+  return curve;
+}
+E.normalizeKfEase = normaliseKfEase;
+function copyKfEase(e) { var n = normaliseKfEase(e == null ? 'ease' : e); return typeof n === 'object' ? E.clone(n) : n; }
+function easeU(u, e) {
+  if (e && typeof e === 'object') return E.cubicBezierProgress(e, u);
+  return e === 'hold' ? 0 : e === 'lin' ? u : u * u * (3 - 2 * u);
+}
 function evalKf(a, t) {
   var n = a.length; if (t <= a[0].t) return a[0].v; if (t >= a[n - 1].t) return a[n - 1].v;
   var i = 1; while (i < n - 1 && a[i].t <= t) i++;
@@ -194,7 +219,7 @@ function kfInsert(a, k) { var i = 0; while (i < a.length && a[i].t < k.t) i++; a
 /* Set a parameter. An animated parameter gets a keyframe at lt (or its keyframe there is updated); otherwise the plain value changes. No history step: callers commit. */
 E.setTf = function (c, p, v, lt) {
   var a = c.kf && c.kf[p];
-  if (a && a.length) { var i = E.kfIndex(c, p, lt); if (i >= 0) a[i].v = v; else kfInsert(a, { t: lt, v: v, e: E.kfEase }); }
+  if (a && a.length) { var i = E.kfIndex(c, p, lt); if (i >= 0) a[i].v = v; else kfInsert(a, { t: lt, v: v, e: copyKfEase(E.kfEase) }); }
   else c.tf[p] = v;
 };
 /* Diamond button: add a keyframe at lt for each parameter in ps, or remove them when all already have one there. */
@@ -204,7 +229,7 @@ E.toggleKf = function (c, ps, lt) {
   ps.forEach(function (p) {
     var a = c.kf[p], i = E.kfIndex(c, p, lt);
     if (all) { var gone = a.splice(i, 1)[0]; if (!a.length) c.tf[p] = gone.v; }
-    else if (i < 0) kfInsert(a, { t: lt, v: cur[p], e: E.kfEase });
+    else if (i < 0) kfInsert(a, { t: lt, v: cur[p], e: copyKfEase(E.kfEase) });
   });
   E.emit('project'); E.dirty(); E.commit();
 };
@@ -229,8 +254,8 @@ E.moveKfTime = function (c, from, to) {
 };
 /* Set how keyframes at lt ease towards the next one. With none there, only the default for new keyframes changes. */
 E.setKfEase = function (c, lt, e) {
-  E.kfEase = e; var hit = false;
-  if (c && c.kf) E.KF_PARAMS.forEach(function (p) { var i = E.kfIndex(c, p, lt); if (i >= 0) { c.kf[p][i].e = e; hit = true; } });
+  e = copyKfEase(e); E.kfEase = e; var hit = false;
+  if (c && c.kf) E.KF_PARAMS.forEach(function (p) { var i = E.kfIndex(c, p, lt); if (i >= 0) { c.kf[p][i].e = copyKfEase(e); hit = true; } });
   if (hit) { E.emit('project'); E.dirty(); E.commit(); }
 };
 
@@ -244,7 +269,7 @@ E.addKf = function (c, p, lt) {
   lt = clamp(lt, 0, c.dur);
   var existing = E.kfIndex(c, p, lt);
   if (existing >= 0) return { t: c.kf[p][existing].t, v: c.kf[p][existing].v, e: c.kf[p][existing].e };
-  var key = { t: lt, v: E.tfAt(c, lt)[p], e: E.kfEase };
+  var key = { t: lt, v: E.tfAt(c, lt)[p], e: copyKfEase(E.kfEase) };
   kfInsert(c.kf[p], key);
   return { t: key.t, v: key.v, e: key.e };
 };
@@ -265,8 +290,7 @@ E.updateKf = function (c, p, index, patch) {
     key.v = v;
   }
   if (patch.e != null) {
-    if (['ease', 'lin', 'hold'].indexOf(patch.e) < 0) throw new TypeError('Choose Smooth, Linear or Hold easing.');
-    key.e = patch.e;
+    key.e = copyKfEase(patch.e);
   }
   a.sort(function (x, y) { return x.t - y.t; });
   return { t: key.t, v: key.v, e: key.e };
@@ -300,7 +324,7 @@ E.saveMotionPreset = function (name, clip) {
   var tracks = E.defKf(), count = 0, maxTime = 0;
   E.KF_PARAMS.forEach(function (p) {
     tracks[p] = (clip.kf[p] || []).map(function (k) {
-      return { t: Number(k.t), v: Number(k.v), e: ['ease', 'lin', 'hold'].indexOf(k.e) >= 0 ? k.e : 'ease' };
+      return { t: Number(k.t), v: Number(k.v), e: copyKfEase(k.e) };
     }).filter(function (k) { return isFinite(k.t) && isFinite(k.v) && k.t >= 0; }).sort(function (a, b) { return a.t - b.t; });
     count += tracks[p].length;
     tracks[p].forEach(function (k) { maxTime = Math.max(maxTime, k.t); });
@@ -325,7 +349,7 @@ E.applyMotionPreset = function (id, clip) {
   if (longest > clip.dur + E.KF_EPS) throw new Error('This motion preset is longer than the selected clip. Extend the clip first.');
   var copy = E.defKf();
   E.KF_PARAMS.forEach(function (p) {
-    copy[p] = (tracks[p] || []).map(function (k) { return { t: Number(k.t), v: Number(k.v), e: k.e }; }).sort(function (a, b) { return a.t - b.t; });
+    copy[p] = (tracks[p] || []).map(function (k) { return { t: Number(k.t), v: Number(k.v), e: copyKfEase(k.e) }; }).sort(function (a, b) { return a.t - b.t; });
   });
   clip.kf = copy;
   return true;
@@ -340,9 +364,9 @@ function splitKf(c, b, d) {
   E.KF_PARAMS.forEach(function (p) {
     var a = c.kf && c.kf[p]; if (!a || !a.length) return;
     var v = evalKf(a, d), ease = 'ease', i;
-    for (i = 0; i < a.length; i++) if (a[i].t <= d) ease = a[i].e;
-    c.kf[p] = a.filter(function (k) { return k.t < d - E.KF_EPS; }).concat([{ t: d, v: v, e: ease }]);
-    b.kf[p] = [{ t: 0, v: v, e: ease }].concat(a.filter(function (k) { return k.t > d + E.KF_EPS; }).map(function (k) { return { t: k.t - d, v: k.v, e: k.e }; }));
+    for (i = 0; i < a.length; i++) if (a[i].t <= d) ease = copyKfEase(a[i].e);
+    c.kf[p] = a.filter(function (k) { return k.t < d - E.KF_EPS; }).concat([{ t: d, v: v, e: copyKfEase(ease) }]);
+    b.kf[p] = [{ t: 0, v: v, e: copyKfEase(ease) }].concat(a.filter(function (k) { return k.t > d + E.KF_EPS; }).map(function (k) { return { t: k.t - d, v: k.v, e: copyKfEase(k.e) }; }));
   });
 }
 /* The clip's left edge moved by d seconds: keep keyframes at the same moment of the timeline. */
