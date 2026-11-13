@@ -160,11 +160,11 @@ function animGrid(c, which) {
 }
 
 var MOTION_TRACKS = [
-  { p: 'x', label: 'Position X', min: -1, max: 1, step: 0.005, dec: 3 },
-  { p: 'y', label: 'Position Y', min: -1, max: 1, step: 0.005, dec: 3 },
-  { p: 's', label: 'Scale', min: 0.03, max: 10, step: 0.01, dec: 2 },
-  { p: 'r', label: 'Rotation', min: -3600, max: 3600, step: 1, dec: 1 },
-  { p: 'o', label: 'Opacity', min: 0, max: 1, step: 0.01, dec: 2 }
+  { p: 'x', label: 'Position X', min: -1, max: 1, step: 0.005, dec: 3, viewSpan: 0.5 },
+  { p: 'y', label: 'Position Y', min: -1, max: 1, step: 0.005, dec: 3, viewSpan: 0.5 },
+  { p: 's', label: 'Scale', min: 0.03, max: 10, step: 0.01, dec: 2, viewSpan: 2 },
+  { p: 'r', label: 'Rotation', min: -3600, max: 3600, step: 1, dec: 1, viewSpan: 180 },
+  { p: 'o', label: 'Opacity', min: 0, max: 1, step: 0.01, dec: 2, viewSpan: 0.5 }
 ];
 function motionEditor(c) {
   var root = h('div', { class: 'mke' }), lanes = h('div', { class: 'mke-lanes' });
@@ -184,19 +184,48 @@ function motionEditor(c) {
     if (message) setStatus(message);
     render();
   }
+  function valueDomain(info, keys) {
+    if (!keys.length) return { min: info.min, max: info.max };
+    var lo = Infinity, hi = -Infinity;
+    keys.forEach(function (key) { lo = Math.min(lo, key.v); hi = Math.max(hi, key.v); });
+    var centre = (lo + hi) / 2, span = Math.max(info.viewSpan, hi - lo), pad = span * 0.16;
+    lo = centre - span / 2 - pad; hi = centre + span / 2 + pad;
+    if (lo < info.min) { hi += info.min - lo; lo = info.min; }
+    if (hi > info.max) { lo -= hi - info.max; hi = info.max; }
+    lo = Math.max(info.min, lo); hi = Math.min(info.max, hi);
+    if (hi - lo < 1e-6) return { min: info.min, max: info.max };
+    return { min: lo, max: hi };
+  }
+  function valueY(value, domain) {
+    var span = Math.max(1e-6, domain.max - domain.min);
+    return 90 - clamp((value - domain.min) / span, 0, 1) * 80;
+  }
+  function lanePoints(keys, domain) {
+    return keys.map(function (key) {
+      var x = clamp(key.t / Math.max(0.001, c.dur), 0, 1) * 100;
+      return x.toFixed(2) + ',' + valueY(key.v, domain).toFixed(2);
+    }).join(' ');
+  }
   function renderLanes() {
     lanes.textContent = '';
     MOTION_TRACKS.forEach(function (info) {
       var row = h('div', { class: 'mke-lane' });
       var label = h('span', { class: 'mke-label', text: info.label });
-      var track = h('div', { class: 'mke-track', role: 'group', 'aria-label': info.label + ' keyframes' });
+      var track = h('div', { class: 'mke-track', role: 'group', 'aria-label': info.label + ' keyframes',
+        title: 'Horizontal position = time. Vertical position = value.' });
       var keys = c.kf && c.kf[info.p] || [];
+      var domain = valueDomain(info, keys);
+      var graph = h('div', { class: 'mke-graph', 'aria-hidden': 'true' });
+      graph.innerHTML = '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><polyline class="mke-value-path" points="' + lanePoints(keys, domain) + '" /></svg>';
+      var graphPath = graph.querySelector('polyline');
+      track.appendChild(graph);
       keys.forEach(function (key) {
         var pct = clamp(key.t / Math.max(0.001, c.dur), 0, 1) * 100;
+        var yPct = valueY(key.v, domain);
         var active = selected && selected.p === info.p && Math.abs(selected.t - key.t) <= E.KF_EPS;
         var marker = h('button', { class: 'mke-dot' + (active ? ' active' : ''), type: 'button',
-          style: { left: pct + '%' }, title: info.label + ' · ' + key.t.toFixed(2) + 's · ' + key.v,
-          'aria-label': 'Select ' + info.label + ' keyframe at ' + key.t.toFixed(2) + ' seconds',
+          style: { left: pct + '%', top: yPct + '%' }, title: info.label + ' · ' + key.t.toFixed(2) + 's · ' + key.v,
+          'aria-label': 'Select ' + info.label + ' keyframe at ' + key.t.toFixed(2) + ' seconds, value ' + key.v + '. Drag horizontally to retime or vertically to change value.',
           'aria-pressed': String(!!active), html: U.kfIcon(11) });
         var suppressPointerClick = false, laneDrag = null;
         marker.addEventListener('click', function (e) {
@@ -205,24 +234,33 @@ function motionEditor(c) {
         });
         marker.addEventListener('pointerdown', function (e) {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
-          var rect = track.getBoundingClientRect(); if (!rect.width) return;
+          var rect = track.getBoundingClientRect(); if (!rect.width || !rect.height) return;
           suppressPointerClick = false;
-          laneDrag = { pid: e.pointerId, sx: e.clientX, time: key.t, rect: rect, moved: false };
+          laneDrag = { pid: e.pointerId, sx: e.clientX, sy: e.clientY, time: key.t, value: key.v,
+            rect: rect, domain: domain, moved: false };
           E.pause();
           if (marker.setPointerCapture) { try { marker.setPointerCapture(e.pointerId); } catch (err) {} }
           e.stopPropagation();
         });
         marker.addEventListener('pointermove', function (e) {
           var d = laneDrag; if (!d || d.pid !== e.pointerId) return;
-          if (!d.moved && Math.abs(e.clientX - d.sx) < 4) return;
+          var dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+          if (!d.moved && Math.sqrt(dx * dx + dy * dy) < 4) return;
           d.moved = true;
           var progress = clamp((e.clientX - d.rect.left) / d.rect.width, 0, 1);
-          var target = Math.round(progress * c.dur * 100) / 100;
-          var got = E.movePropertyKfTime(c, info.p, d.time, target);
+          var targetTime = Math.round(progress * c.dur * 100) / 100;
+          var got = E.movePropertyKfTime(c, info.p, d.time, targetTime);
           d.time = got;
+          var valueSpan = Math.max(1e-6, d.domain.max - d.domain.min);
+          var targetValue = d.value - (dy / Math.max(1, d.rect.height * 0.8)) * valueSpan;
+          targetValue = Math.round(targetValue / info.step) * info.step;
+          targetValue = clamp(Number(targetValue.toFixed(info.dec)), info.min, info.max);
+          try { E.setPropertyKfValue(c, info.p, got, targetValue); } catch (err) {}
           marker.style.left = (got / Math.max(0.001, c.dur) * 100) + '%';
-          marker.title = info.label + ' · ' + got.toFixed(2) + 's · ' + key.v;
-          marker.setAttribute('aria-label', 'Select ' + info.label + ' keyframe at ' + got.toFixed(2) + ' seconds');
+          marker.style.top = valueY(targetValue, d.domain) + '%';
+          marker.title = info.label + ' · ' + got.toFixed(2) + 's · ' + targetValue;
+          marker.setAttribute('aria-label', 'Select ' + info.label + ' keyframe at ' + got.toFixed(2) + ' seconds, value ' + targetValue + '. Drag horizontally to retime or vertically to change value.');
+          if (graphPath) graphPath.setAttribute('points', lanePoints(keys, domain));
           E.dirty();
           e.preventDefault();
         });
@@ -430,7 +468,7 @@ function motionEditor(c) {
   function render() { renderLanes(); renderDetail(); refreshPresets(); }
   root.appendChild(lanes);
   root.appendChild(detail);
-  root.appendChild(hint('Choose a diamond to edit its time, value and easing. The lane markers also remain draggable on the main timeline.'));
+  root.appendChild(hint('Drag a keyframe horizontally to retime it or vertically to change its value. Select a marker for exact time, value and easing controls.'));
   root.appendChild(h('div', { class: 'mke-presets' }, [
     h('strong', { text: 'Project motion library' }),
     hint('Save these keyframe tracks once, then apply them to other image, video or text clips.'),

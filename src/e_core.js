@@ -310,6 +310,12 @@ E.updateKf = function (c, p, index, patch) {
   a.sort(function (x, y) { return x.t - y.t; });
   return { t: key.t, v: key.v, e: key.e };
 };
+/* Set one property's keyframe value by its local time. */
+E.setPropertyKfValue = function (c, p, lt, value) {
+  var index = E.kfIndex(c, p, lt);
+  if (index < 0) throw new Error('The selected keyframe no longer exists.');
+  return E.updateKf(c, p, index, { v: value });
+};
 E.deleteKf = function (c, p, index) {
   var a = c && c.kf && c.kf[p];
   if (!a || index < 0 || index >= a.length) return false;

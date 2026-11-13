@@ -386,9 +386,12 @@ body.ed-on .wrap { display: none; }
 .mke-lanes { display: flex; flex-direction: column; gap: 7px; }
 .mke-lane { display: grid; grid-template-columns: 88px minmax(0,1fr) 27px; align-items: center; gap: 6px; }
 .mke-label { color: var(--e-mut); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mke-track { position: relative; height: 26px; min-width: 0; border: 1px solid var(--e-line); border-radius: 6px; background: repeating-linear-gradient(90deg, var(--e-p2) 0 24px, var(--e-p3) 24px 25px); }
-.mke-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid rgba(255,255,255,.12); }
-.mke-dot { position: absolute; z-index: 1; top: 50%; width: 18px; height: 18px; padding: 0; display: grid; place-items: center; transform: translate(-50%,-50%); border-radius: 50%; background: var(--e-p1); }
+.mke-track { position: relative; height: 58px; min-width: 0; border: 1px solid var(--e-line); border-radius: 6px; background: repeating-linear-gradient(90deg, var(--e-p2) 0 24px, var(--e-p3) 24px 25px), repeating-linear-gradient(0deg, transparent 0 13px, rgba(255,255,255,.035) 13px 14px); }
+.mke-track::before { content: ""; position: absolute; z-index: 0; left: 0; right: 0; top: 50%; border-top: 1px solid rgba(255,255,255,.12); pointer-events: none; }
+.mke-graph { position: absolute; z-index: 1; inset: 0; overflow: visible; pointer-events: none; }
+.mke-graph svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mke-value-path { fill: none; stroke: var(--e-acc); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: .78; }
+.mke-dot { position: absolute; z-index: 2; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; transform: translate(-50%,-50%); border-radius: 50%; background: var(--e-p1); }
 .mke-dot svg { fill: #ffd24a; stroke: #3a2d00; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
 .mke-dot.active { outline: 2px solid var(--e-acc); outline-offset: 1px; }
 .mke-dot:hover { background: var(--e-p4); }
