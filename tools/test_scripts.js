@@ -19,7 +19,7 @@ assert.strictEqual(E.compileScript(cues,cues.scriptCode).events,2);assert.strict
 const movedCues=Object.assign({},cues,{scriptCode:cues.scriptCode});
 const listed=E.listClipScriptCues(movedCues);assert.strictEqual(listed.length,2);assert.strictEqual(listed[1].line,2);
 assert.strictEqual(E.moveClipScriptCue(movedCues,2,1.5),1.5);assert(movedCues.scriptCode.includes('at 1.5s tween transform.scale'));
-assert.strictEqual(E.listClipScriptCues(movedCues)[1].at,1.5);
+assert.strictEqual(E.listClipScriptCues(movedCues)[1].at,1.5);assert.strictEqual(listed[1].mode,'tween');assert.strictEqual(listed[1].property,'transform.scale');assert.strictEqual(listed[1].end,2);
 assert.throws(()=>E.moveClipScriptCue(movedCues,99,2),/no longer exists/);
 assert(Math.abs(E.runClipScriptFrame(cues,1.5).transform.scale-0.875)<1e-9);assert.strictEqual(E.runClipScriptFrame(cues,2).transform.scale,1);
 const tx=Object.assign({},clip,{kind:'text',scriptCode:'set text.fontSize = 180\nset text.color = rgb(255, 128, 0)'});

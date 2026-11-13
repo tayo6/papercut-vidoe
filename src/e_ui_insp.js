@@ -214,6 +214,7 @@ function tabScript(c, b) {
     } else {
       ta.value = '# Float while the paper edge changes\nset transform.y = sin(time * 2) * 0.025\nat 0s set transform.scale = 0.8\nat 0.5s tween transform.scale = 1 over 0.5s ease out\nat 0s set paper.edge = 10\nat 0.6s tween paper.edge = 40 over 0.5s ease inout';
     }
+    renderCueList();
     status.textContent = 'Example inserted. Select Check script, then Apply & enable.';
   });
   var check = sb('Check script', function () {
@@ -237,6 +238,179 @@ function tabScript(c, b) {
     q.scriptEnabled = false; E.dirty(); E.commit(); E.emit('project');
     status.textContent = 'Script disabled. Your code is still saved on this clip.';
   });
+
+
+  /* Visual editor for the clip's timed set/tween cues. Code remains the source of truth. */
+  var cueEditor = h('div', { class: 'script-cue-editor' });
+  cueEditor.appendChild(sec('Visual cue editor'));
+  cueEditor.appendChild(hint('Build timed events without writing the cue syntax. Add or edit a cue here, then use Apply & enable to run the updated script.'));
+  var cueTime = h('input', { class: 'ti', type: 'number', min: 0, max: c.dur, step: 0.01, value: round(E.localT(c), 2), 'aria-label': 'Cue time in seconds' });
+  var cueMode = h('select', { class: 'ti', 'aria-label': 'Cue action' }, [
+    h('option', { value: 'set', text: 'Set value (instant)' }),
+    h('option', { value: 'tween', text: 'Tween value (animate)' })
+  ]);
+  var cueTarget = h('select', { class: 'ti', 'aria-label': 'Cue property' });
+  var cueValue = h('input', { class: 'ti', type: 'text', placeholder: 'Enter a number or #RRGGBB', 'aria-label': 'Cue target value' });
+  var cueDuration = h('input', { class: 'ti', type: 'number', min: 0.01, max: c.dur, step: 0.01, value: Math.min(0.5, Math.max(0.01, c.dur)), 'aria-label': 'Tween duration in seconds' });
+  var cueEase = h('select', { class: 'ti', 'aria-label': 'Tween easing' }, [
+    h('option', { value: 'smooth', text: 'Smooth' }),
+    h('option', { value: 'linear', text: 'Linear' }),
+    h('option', { value: 'in', text: 'Ease in' }),
+    h('option', { value: 'out', text: 'Ease out' }),
+    h('option', { value: 'inout', text: 'Ease in and out' })
+  ]);
+  var cueDurationField = h('label', { class: 'script-cue-field' }, [h('span', { text: 'Duration (seconds)' }), cueDuration]);
+  var cueEaseField = h('label', { class: 'script-cue-field' }, [h('span', { text: 'Easing' }), cueEase]);
+  var cueEditingLine = 0;
+  function cueField(label, input) {
+    return h('label', { class: 'script-cue-field' }, [h('span', { text: label }), input]);
+  }
+  var cueProperties = E.listProperties(c).filter(function (p) { return p.type === 'number' || p.type === 'color'; });
+  cueProperties.forEach(function (p) { cueTarget.appendChild(h('option', { value: p.id, text: p.label + '  ·  ' + p.id })); });
+  var preferredTarget = c.kind === 'audio' ? 'audio.volume' : c.kind === 'text' ? 'text.fontSize' : 'transform.scale';
+  if (cueProperties.some(function (p) { return p.id === preferredTarget; })) cueTarget.value = preferredTarget;
+  function cueDef() { return E.getPropertyDef(cueTarget.value); }
+  function fillCueValue() {
+    var def = cueDef(), time = Number(cueTime.value), current = def ? E.getProperty(c, def.id, isFinite(time) ? time : 0) : null;
+    cueValue.value = current == null ? (def && def.type === 'color' ? '#ffffff' : '1') : String(current);
+    cueValue.placeholder = def && def.type === 'color' ? '#RRGGBB colour' : 'Number';
+  }
+  function updateCueMode() {
+    var tween = cueMode.value === 'tween';
+    cueDurationField.hidden = !tween;
+    cueEaseField.hidden = !tween;
+  }
+  cueTarget.addEventListener('change', fillCueValue);
+  cueMode.addEventListener('change', updateCueMode);
+  var cueAtPlayhead = sb('Use playhead', function () { cueTime.value = String(round(E.localT(c), 2)); });
+  var cueAdd = sb('Add cue', function () { writeVisualCue(); });
+  var cueCancel = sb('Cancel edit', function () { resetVisualCue(); });
+  function readCueLine(lineNumber) {
+    var raw = (ta.value || '').split(/\r?\n/)[lineNumber - 1] || '';
+    var clean = raw.replace(/\/\/.*$/, '').trim();
+    var m = clean.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+(set|tween)\s+([a-z][a-z0-9.]*)\s*=\s*(.+)$/i);
+    if (!m) return null;
+    var data = { at: Number(m[1]), mode: m[2].toLowerCase(), property: m[3], value: m[4], duration: 0, ease: 'smooth' };
+    if (data.mode === 'tween') {
+      var tw = data.value.match(/^(.+?)\s+over\s+(\d+(?:\.\d*)?|\.\d+)\s*s(?:\s+ease\s+(linear|in|out|inout|smooth))?$/i);
+      if (!tw) return null;
+      data.value = tw[1]; data.duration = Number(tw[2]); data.ease = (tw[3] || 'smooth').toLowerCase();
+    }
+    return data;
+  }
+  var cueList = h('div', { class: 'script-cue-list', role: 'list', 'aria-label': 'Timed script cues' });
+  function renderCueList() {
+    cueList.textContent = '';
+    var sourceClip = Object.assign({}, c, { scriptCode: ta.value });
+    var cues = E.listClipScriptCues ? E.listClipScriptCues(sourceClip) : [];
+    if (!cues.length) {
+      cueList.appendChild(h('p', { class: 'hint script-cue-empty', text: ta.value.trim() ? 'No valid timed cues found. Check the script syntax above.' : 'No timed cues yet. Use the controls above to add your first event.' }));
+      return;
+    }
+    cues.forEach(function (q) {
+      var data = readCueLine(q.line);
+      var prop = E.getPropertyDef(q.property), label = prop ? prop.label : q.property;
+      var detail = data ? data.value : '';
+      var summary = h('div', { class: 'script-cue-summary' }, [
+        h('strong', { text: round(q.at, 2).toFixed(2) + 's  ·  ' + (q.mode === 'tween' ? 'Tween' : 'Set') }),
+        h('span', { text: label + '  →  ' + detail })
+      ]);
+      var jump = sb('Jump', function () { E.pause(); E.seek(c.start + q.at); });
+      var edit = sb('Edit', function () {
+        if (!data) { status.textContent = 'This cue uses syntax the visual editor cannot unpack. Edit its line in the code editor.'; return; }
+        cueEditingLine = q.line;
+        cueTime.value = String(data.at);
+        cueMode.value = data.mode;
+        cueTarget.value = data.property;
+        cueValue.value = data.value;
+        cueDuration.value = data.duration ? String(data.duration) : '0.5';
+        cueEase.value = data.ease;
+        updateCueMode();
+        cueAdd.textContent = 'Update cue';
+        cueCancel.hidden = false;
+        status.textContent = 'Editing the cue at line ' + q.line + '. Save the change or cancel.';
+        cueTime.focus();
+      });
+      var remove = sb('Remove', function () {
+        var lines = (ta.value || '').split(/\r?\n/);
+        if (q.line > 0 && q.line <= lines.length) lines[q.line - 1] = '';
+        ta.value = lines.join('\n');
+        if (cueEditingLine === q.line) resetVisualCue();
+        renderCueList();
+        status.textContent = 'Cue removed from the script draft. Apply & enable to save the change.';
+      });
+      cueList.appendChild(h('div', { class: 'script-cue-row', role: 'listitem' }, [
+        summary,
+        h('div', { class: 'script-cue-actions' }, [jump, edit, remove])
+      ]));
+    });
+  }
+  function resetVisualCue() {
+    cueEditingLine = 0;
+    cueTime.value = String(round(E.localT(c), 2));
+    cueMode.value = 'set';
+    cueEase.value = 'smooth';
+    updateCueMode();
+    fillCueValue();
+    cueAdd.textContent = 'Add cue';
+    cueCancel.hidden = true;
+  }
+  function writeVisualCue() {
+    var prop = cueTarget.value, def = cueDef(), at = Number(cueTime.value), raw = String(cueValue.value || '').trim();
+    if (!def) { status.textContent = 'Choose a supported property.'; return; }
+    if (!isFinite(at) || at < 0 || at > c.dur) { status.textContent = 'Cue time must be within this clip.'; return; }
+    if (!raw) { status.textContent = 'Enter a target value.'; return; }
+    var value;
+    try {
+      if (def.type === 'number') {
+        if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw)) throw new Error('The visual editor accepts a number here. Use the code editor for expressions.');
+        value = String(E.normalizeProperty(prop, Number(raw)));
+      } else {
+        if (!/^#[0-9a-f]{6}$/i.test(raw)) throw new Error('Choose a six-digit hex colour such as #ffcc00.');
+        value = E.normalizeProperty(prop, raw);
+      }
+      var mode = cueMode.value, duration = Number(cueDuration.value), ease = cueEase.value;
+      var line = 'at ' + round(at, 2) + 's ' + mode + ' ' + prop + ' = ' + value;
+      if (mode === 'tween') {
+        if (!isFinite(duration) || duration <= 0 || at + duration > c.dur + 1e-6) throw new Error('Tween duration must be positive and finish before this clip ends.');
+        line += ' over ' + round(duration, 2) + 's ease ' + ease;
+      }
+      var lines = (ta.value || '').split(/\r?\n/), candidate;
+      if (cueEditingLine) {
+        if (cueEditingLine < 1 || cueEditingLine > lines.length) throw new Error('The cue being edited no longer exists.');
+        lines[cueEditingLine - 1] = line;
+        candidate = lines.join('\n');
+      } else {
+        candidate = (ta.value || '') + ((ta.value && !/\n$/.test(ta.value)) ? '\n' : '') + line;
+      }
+      E.compileScript(c, candidate);
+      ta.value = candidate;
+      var updated = cueEditingLine ? 'Cue updated' : 'Cue added';
+      resetVisualCue();
+      renderCueList();
+      status.textContent = updated + '. Apply & enable to run the updated script.';
+    } catch (err) {
+      status.textContent = err && err.message ? err.message : String(err);
+    }
+  }
+  cueEditor.appendChild(h('div', { class: 'script-cue-grid' }, [
+    cueField('At (seconds)', cueTime),
+    cueField('Action', cueMode),
+    cueField('Property', cueTarget),
+    cueField('Target value', cueValue),
+    cueDurationField,
+    cueEaseField
+  ]));
+  cueEditor.appendChild(hint('For a tween, choose its duration and easing. The visual value field accepts numbers and six-digit hex colours; use the code editor for expressions.'));
+  cueEditor.appendChild(h('div', { class: 'script-actions' }, [cueAtPlayhead, cueAdd, cueCancel]));
+  cueCancel.hidden = true;
+  cueEditor.appendChild(cueList);
+  cueTime.addEventListener('change', fillCueValue);
+  cueValue.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); writeVisualCue(); } });
+  ta.addEventListener('input', renderCueList);
+  updateCueMode();
+  fillCueValue();
+  renderCueList();
 
   var library = h('div', { class: 'script-library' });
   library.appendChild(sec('Project script library'));
@@ -275,7 +449,7 @@ function tabScript(c, b) {
     var q = E.selClip(), p = selectedPreset(); if (!q || q.id !== c.id) return;
     if (!p) { status.textContent = 'Choose a saved script first.'; return; }
     try {
-      E.applyScriptPreset(p.id, q); ta.value = p.code; presetName.value = p.name;
+      E.applyScriptPreset(p.id, q); ta.value = p.code; presetName.value = p.name; renderCueList();
       E.dirty(); E.emit('project'); E.commit();
       status.textContent = 'Applied "' + p.name + '" and enabled it on this clip.';
       U.toast('Script preset applied.');
