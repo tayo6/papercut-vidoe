@@ -225,8 +225,12 @@ E.boxOf = function (c, w, h, T) {
 };
 
 function scriptedFrame(c, T) {
-  var timelineTime = T == null ? E.t : T, lt = timelineTime - c.start, values = Object.create(null), local = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null, project = E.runProjectScriptFrame ? E.runProjectScriptFrame(c, timelineTime) : null;
+  var timelineTime = T == null ? E.t : T, lt = timelineTime - c.start, values = Object.create(null), local = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null;
+  var scene = E.proj.scenes && E.proj.scenes.find(function (item) { return item.id === c.sceneId; });
+  var sceneFrame = scene && E.runSceneScriptFrame ? E.runSceneScriptFrame(scene, c, timelineTime) : null;
+  var project = E.runProjectScriptFrame ? E.runProjectScriptFrame(c, timelineTime) : null;
   if (local && local.scriptedValues) Object.keys(local.scriptedValues).forEach(function (id) { values[id] = local.scriptedValues[id]; });
+  if (sceneFrame && sceneFrame.scriptedValues) Object.keys(sceneFrame.scriptedValues).forEach(function (id) { values[id] = sceneFrame.scriptedValues[id]; });
   if (project && project.scriptedValues) Object.keys(project.scriptedValues).forEach(function (id) { values[id] = project.scriptedValues[id]; });
   if (!Object.keys(values).length) return null;
   var frame = E.evaluateProperties(c, lt, values); frame.scriptedValues = values; return frame;

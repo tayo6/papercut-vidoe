@@ -37,13 +37,20 @@ function applyEnv(gp, c, tStart, rel) {
 }
 function hasScriptAudio(c) {
   var ids = ['audio.volume', 'audio.fadeIn', 'audio.fadeOut'];
-  return ids.some(function (id) { return (E.hasClipScriptTarget && E.hasClipScriptTarget(c, id)) || (E.hasProjectScriptTarget && E.hasProjectScriptTarget(c, id)); });
+  return ids.some(function (id) {
+    return (E.hasClipScriptTarget && E.hasClipScriptTarget(c, id)) ||
+      (E.hasSceneScriptTarget && E.hasSceneScriptTarget(c, id)) ||
+      (E.hasProjectScriptTarget && E.hasProjectScriptTarget(c, id));
+  });
 }
 function applyScriptEnv(gp, c, when, rel, span) {
   var count = Math.max(2, Math.min(18001, Math.ceil(span * 30) + 1)), curve = new Float32Array(count);
   for (var i = 0; i < count; i++) {
-    var local = rel + span * i / (count - 1), frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, local) : null, projectFrame = E.runProjectScriptFrame ? E.runProjectScriptFrame(c, c.start + local) : null;
-    var changes = Object.assign({}, frame && frame.scriptedValues || {}, projectFrame && projectFrame.scriptedValues || {});
+    var local = rel + span * i / (count - 1), frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, local) : null;
+    var scene = E.proj.scenes && E.proj.scenes.find(function (item) { return item.id === c.sceneId; });
+    var sceneFrame = scene && E.runSceneScriptFrame ? E.runSceneScriptFrame(scene, c, c.start + local) : null;
+    var projectFrame = E.runProjectScriptFrame ? E.runProjectScriptFrame(c, c.start + local) : null;
+    var changes = Object.assign({}, frame && frame.scriptedValues || {}, sceneFrame && sceneFrame.scriptedValues || {}, projectFrame && projectFrame.scriptedValues || {});
     var vol = Object.prototype.hasOwnProperty.call(changes, 'audio.volume') ? changes['audio.volume'] : c.vol;
     var fi = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeIn') ? changes['audio.fadeIn'] : c.fadeIn;
     var fo = Object.prototype.hasOwnProperty.call(changes, 'audio.fadeOut') ? changes['audio.fadeOut'] : c.fadeOut;

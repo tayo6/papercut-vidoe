@@ -175,4 +175,49 @@ projectFrame=E.runProjectScriptFrame(projectText,2.75);
 assert.strictEqual(projectFrame.text.fontSize,165);
 
 
+
+/* Scene scripts use scene-relative time and are restricted to scene members. */
+E.proj.projectScriptEnabled=false;
+projectVideo.start=10;
+projectVideo.dur=4;
+projectVideo.sceneId='scene-intro';
+projectVideo.sceneAlias='intro';
+projectText.start=12;
+projectText.dur=3;
+projectText.sceneId='scene-intro';
+projectText.sceneAlias='intro';
+const introScene={
+ id:'scene-intro',alias:'intro',name:'Intro',start:10,duration:4,
+ scriptCode:[
+  'clip hero-shot set transform.y = sin(time) * 0.1',
+  'at 1s clip title-card tween text.fontSize = 200 over 2s ease linear'
+ ].join('\n'),
+ scriptEnabled:true
+};
+E.proj.scenes=[introScene];
+E.end=()=>15;
+const sceneCheck=E.compileSceneScript(introScene,introScene.scriptCode);
+assert.strictEqual(sceneCheck.statements,2);
+assert.deepStrictEqual(Array.from(sceneCheck.targets).sort(),['project-text','project-video']);
+let sceneFrame=E.runSceneScriptFrame(introScene,projectVideo,12);
+assert(Math.abs(sceneFrame.transform.y-Math.sin(2)*0.1)<1e-9,'Scene time should be two seconds at timeline time 12.');
+sceneFrame=E.runSceneScriptFrame(introScene,projectText,12.5);
+assert.strictEqual(sceneFrame.text.fontSize,180,'Scene timed tween should be sampled using scene-relative time.');
+assert.strictEqual(E.hasSceneScriptTarget(projectVideo,'transform.y'),true);
+assert.strictEqual(E.hasSceneScriptTarget(projectText,'text.fontSize'),true);
+assert.deepStrictEqual(Array.from(E.getSceneScriptTargets(projectVideo)),['transform.y']);
+assert.strictEqual(E.getSceneScriptError(introScene),'');
+assert.throws(()=>E.compileSceneScript(introScene,'clip missing-from-scene set transform.x = 1'),/only target clips belonging to this scene/);
+assert.throws(()=>E.compileSceneScript(introScene,'at 3.5s clip title-card tween text.fontSize = 200 over 1s ease linear'),/within the clip|scene duration|duration/i);
+const outsider=Object.assign({},projectVideo,{id:'other-scene-clip',scriptAlias:'other-scene-shot',sceneId:'scene-main'});
+E.proj.clips.push(outsider);
+assert.throws(()=>E.compileSceneScript(introScene,'clip other-scene-shot set transform.x = 1'),/only target clips belonging to this scene/);
+introScene.scriptEnabled=false;
+assert.strictEqual(E.runSceneScriptFrame(introScene,projectVideo,12),null);
+assert.deepStrictEqual(Array.from(E.getSceneScriptTargets(projectVideo)),[]);
+introScene.scriptEnabled=true;
+introScene.scriptCode='clip hero-shot set transform.x = time * 0.1';
+sceneFrame=E.runSceneScriptFrame(introScene,projectVideo,13);
+assert(Math.abs(sceneFrame.transform.x-0.3)<1e-9,'Changing scene code must invalidate its cached program.');
+
 console.log('SnipScript v2, project script orchestration, project library, easing and custom Bezier tests passed.');
