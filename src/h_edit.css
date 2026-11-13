@@ -302,3 +302,8 @@ body.ed-on .wrap { display: none; }
   .ed-lib, .ed-insp { height: 62dvh; }
 }
 @media (prefers-reduced-motion: reduce) { .ed-toast { transition: none; } .pbar i { transition: none; } }
+
+/* SnipScript editor */
+.ed .script-code { min-height: 190px; font: 12px/1.55 var(--f-mono); tab-size: 2; white-space: pre; }
+.ed .script-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.ed .script-status { min-height: 18px; padding: 7px 8px; border-radius: 6px; background: var(--e-p2); overflow-wrap: anywhere; }

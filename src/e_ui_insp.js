@@ -198,6 +198,48 @@ function tabAudio(c, b) {
   }
 }
 
+
+function tabScript(c, b) {
+  b.appendChild(sec('SnipScript'));
+  b.appendChild(hint('Write per-frame expressions for this clip. Scripts override its transform non-destructively in preview and export. No JavaScript, browser APIs or network access.'));
+  var ta = h('textarea', { class: 'ti script-code', rows: 10, spellcheck: 'false', 'aria-label': 'SnipScript code' });
+  ta.value = c.scriptCode || '';
+  var status = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
+  status.textContent = c.scriptEnabled ? 'Script is enabled.' : 'Script is disabled. Apply a script to enable it.';
+  var example = sb('Insert float example', function () {
+    ta.value = '# Gentle floating movement\nset transform.y = sin(time * 2) * 0.04\nset transform.rotation = sin(time * 1.2) * 3';
+    status.textContent = 'Example inserted. Select Apply & enable to use it.';
+  });
+  var check = sb('Check script', function () {
+    try {
+      var result = E.compileScript(E.selClip() || c, ta.value);
+      status.textContent = 'Valid: ' + result.statements + ' statement(s), ' + result.properties.length + ' property target(s).';
+    } catch (err) { status.textContent = err.message || String(err); }
+  });
+  var apply = sb('Apply & enable', function () {
+    var q = E.selClip(); if (!q || q.id !== c.id) return;
+    try {
+      E.compileScript(q, ta.value);
+      q.scriptCode = ta.value; q.scriptEnabled = true;
+      E.dirty(); E.commit(); E.emit('project');
+      status.textContent = 'Script applied and enabled. It will run in preview and export.';
+      U.toast('SnipScript enabled for this clip.');
+    } catch (err) { status.textContent = err.message || String(err); }
+  });
+  var disable = sb('Disable script', function () {
+    var q = E.selClip(); if (!q || q.id !== c.id) return;
+    q.scriptEnabled = false; E.dirty(); E.commit(); E.emit('project');
+    status.textContent = 'Script disabled. Your code is still saved on this clip.';
+  });
+  b.appendChild(h('div', { class: 'script-actions' }, [example, check, apply, disable]));
+  b.appendChild(ta);
+  b.appendChild(status);
+  b.appendChild(sec('Available values'));
+  b.appendChild(hint('time = seconds since this clip starts; duration = clip length in seconds; progress = 0 to 1; pi = π.'));
+  b.appendChild(hint('Targets: transform.x, transform.y, transform.scale, transform.rotation, transform.opacity.'));
+  b.appendChild(hint('Math: sin, cos, tan, abs, min, max, clamp, round, floor, ceil, sqrt, pow and sign. Example: set transform.x = sin(time * 2) * 0.2'));
+}
+
 var labelT = 0;
 function tabText(c, b) {
   b.appendChild(sec('Content'));
@@ -267,12 +309,12 @@ function tabsFor(c) {
   if (!c) return [['proj', 'Project', 'film']];
   if (c.kind === 'audio') return [['audio', 'Audio', 'vol']];
   var t = c.kind === 'text' ? [['text', 'Text', 'text'], ['basic', 'Layout', 'sliders']] : [['basic', 'Video', 'video']];
-  t.push(['cut', 'Cutout', 'scissors'], ['anim', 'Animation', 'sparkle']); if (c.kind === 'video') t.push(['audio', 'Audio', 'vol']); return t;
+  t.push(['cut', 'Cutout', 'scissors'], ['anim', 'Animation', 'sparkle'], ['script', 'Script', 'code']); if (c.kind === 'video') t.push(['audio', 'Audio', 'vol']); return t;
 }
 function keyOf() {
   var c = E.selClip(); if (!c) return 'none';
   var m = c.media && E.media[c.media];
-  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
+  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
 }
 function build() {
   if (building) return; building = true;
@@ -286,7 +328,7 @@ function build() {
     tl.hidden = !c;
     list.forEach(function (t) { tl.appendChild(h('button', { class: 'et', type: 'button', role: 'tab', 'aria-selected': 'false', html: U.ic(t[2], 18) + '<span>' + t[1] + '</span>', onclick: function () { tabName = t[0]; build(); } })); });
     list.forEach(function (t, i) { tl.children[i].setAttribute('aria-selected', String(t[0] === tn)); });
-    ({ proj: tabProject, basic: tabBasic, cut: tabCut, anim: tabAnim, audio: tabAudio, text: tabText })[tn](c, body);
+    ({ proj: tabProject, basic: tabBasic, cut: tabCut, anim: tabAnim, audio: tabAudio, text: tabText, script: tabScript })[tn](c, body);
     body.scrollTop = keep; lastSel = c ? c.id : null; lastTab = tn; curKey = keyOf();
   } finally { building = false; }
 }
