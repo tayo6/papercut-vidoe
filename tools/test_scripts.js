@@ -1,12 +1,12 @@
 'use strict';
 const assert=require('assert'),fs=require('fs'),vm=require('vm');
-const types={'transform.x':'number','transform.y':'number','transform.scale':'number','transform.rotation':'number','transform.opacity':'number','audio.volume':'number','audio.fadeIn':'number','audio.fadeOut':'number','text.fontSize':'number','text.color':'color','paper.edge':'number','paper.roughness':'number'};
+const types={'transform.x':'number','transform.y':'number','transform.scale':'number','transform.rotation':'number','transform.opacity':'number','audio.volume':'number','audio.fadeIn':'number','audio.fadeOut':'number','text.fontSize':'number','text.color':'color','paper.enabled':'boolean','paper.edge':'number','paper.roughness':'number','paper.detail':'number','paper.grain':'number','paper.color':'color','paper.boil':'number','paper.boilFps':'number','paper.boilLoop':'number','paper.shadow':'number','paper.shadowBlur':'number'};
 const E={
  listProperties:c=>Object.keys(types).filter(id=>id.startsWith('audio.')?['audio','video'].includes(c.kind):id.startsWith('text.')?c.kind==='text':id.startsWith('paper.')?['image','video','text'].includes(c.kind):['image','video','text'].includes(c.kind)).map(id=>({id,type:types[id]})),
  getPropertyDef:id=>types[id]?{id,type:types[id]}:null,
- normalizeProperty:(id,v)=>types[id]==='number'?Math.max(id==='transform.x'||id==='transform.y'?-1:0,Math.min(id==='transform.x'||id==='transform.y'?1:id==='audio.volume'?2:2000,Number(v))):(typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v.toLowerCase():(()=>{throw new TypeError('bad colour');})()),
+ normalizeProperty:(id,v)=>{if(types[id]==='boolean'){if(typeof v!=='boolean')throw new TypeError('bad boolean');return v;}if(types[id]==='number'){if(typeof v!=='number'||!isFinite(v))throw new TypeError('bad number');return Math.max(id==='transform.x'||id==='transform.y'?-1:0,Math.min(id==='transform.x'||id==='transform.y'?1:id==='audio.volume'?2:2000,v));}if(types[id]==='color'&&typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v))return v.toLowerCase();throw new TypeError('bad property value');},
  getProperty:(c,id,t)=>c.values[id],
- evaluateProperties:(c,t,o)=>{const values=Object.assign({},c.values,o);return {values,transform:{x:values['transform.x'],y:values['transform.y'],scale:values['transform.scale'],rotation:values['transform.rotation'],opacity:values['transform.opacity']},audio:{volume:values['audio.volume'],fadeIn:values['audio.fadeIn'],fadeOut:values['audio.fadeOut']},text:{fontSize:values['text.fontSize'],color:values['text.color']},paper:{edge:values['paper.edge'],roughness:values['paper.roughness']}};}
+ evaluateProperties:(c,t,o)=>{const values=Object.assign({},c.values,o);return {values,transform:{x:values['transform.x'],y:values['transform.y'],scale:values['transform.scale'],rotation:values['transform.rotation'],opacity:values['transform.opacity']},audio:{volume:values['audio.volume'],fadeIn:values['audio.fadeIn'],fadeOut:values['audio.fadeOut']},text:{fontSize:values['text.fontSize'],color:values['text.color']},paper:{enabled:values['paper.enabled'],edge:values['paper.edge'],roughness:values['paper.roughness'],detail:values['paper.detail'],grain:values['paper.grain'],color:values['paper.color'],boil:values['paper.boil'],boilFps:values['paper.boilFps'],boilLoop:values['paper.boilLoop'],shadow:values['paper.shadow'],shadowBlur:values['paper.shadowBlur']}};}
 };
 const context={window:{__snip:{E}},isFinite,Math,Number,Object,String,TypeError,SyntaxError,WeakMap};vm.runInNewContext(fs.readFileSync('src/e_script.js','utf8'),context);
 assert.strictEqual(E.easeProgress('linear',0.25),0.25);
@@ -26,7 +26,7 @@ for(let sample=0;sample<=20;sample++){
 assert.strictEqual(E.cubicBezierProgress(standardBezier,0),0);
 assert.strictEqual(E.cubicBezierProgress(standardBezier,1),1);
 assert.throws(()=>E.cubicBezierProgress({x1:1.2,y1:0,x2:0.2,y2:1},0.5),/outside the supported range/);
-const base={'transform.x':0,'transform.y':0,'transform.scale':1,'transform.rotation':0,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':0,'audio.fadeOut':0,'text.fontSize':120,'text.color':'#ffffff','paper.edge':14,'paper.roughness':45};
+const base={'transform.x':0,'transform.y':0,'transform.scale':1,'transform.rotation':0,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':0,'audio.fadeOut':0,'text.fontSize':120,'text.color':'#ffffff','paper.enabled':false,'paper.edge':14,'paper.roughness':45,'paper.detail':55,'paper.grain':40,'paper.color':'#000000','paper.boil':0,'paper.boilFps':8,'paper.boilLoop':3,'paper.shadow':20,'paper.shadowBlur':14};
 const clip={id:'c1',kind:'video',dur:4,values:Object.assign({},base),scriptEnabled:true,scriptCode:'set transform.y = sin(time * 2) * 0.04\nset transform.opacity = clamp(1 - progress, 0, 1)'};
 let c=E.compileScript(clip,clip.scriptCode);assert.strictEqual(c.statements,2);assert.strictEqual(c.events,0);
 let f=E.runClipScriptFrame(clip,0);assert(Math.abs(f.transform.y)<1e-9);assert.strictEqual(f.transform.opacity,1);
@@ -43,6 +43,12 @@ const tx=Object.assign({},clip,{kind:'text',scriptCode:'set text.fontSize = 180\
 assert.strictEqual(E.compileScript(tx,tx.scriptCode).statements,2);f=E.runClipScriptFrame(tx,1);if(!f)throw new Error('Text script runtime error: '+E.getClipScriptError(tx));assert.strictEqual(f.text.fontSize,180);assert.strictEqual(f.text.color,'#ff8000');
 const paper=Object.assign({},clip,{kind:'image',scriptCode:'at 0s set paper.edge = 10\nat 1s tween paper.edge = 50 over 1s ease linear'});
 assert.strictEqual(E.runClipScriptFrame(paper,0.5).paper.edge,10);assert.strictEqual(E.runClipScriptFrame(paper,1.5).paper.edge,30);
+const paperControls=Object.assign({},clip,{kind:'image',scriptCode:['at 0s set paper.enabled = true','at 0s set paper.edge = 12','at 0s set paper.roughness = 60','at 0s set paper.detail = 75','at 0s set paper.grain = 65','at 0s tween paper.color = #ffffff over 1s ease linear','at 0s set paper.boil = 5','at 0s set paper.boilFps = 12','at 0s set paper.boilLoop = 6','at 0s set paper.shadow = 35','at 0s set paper.shadowBlur = 16','at 1s set paper.enabled = false'].join('\n')});
+assert.strictEqual(E.compileScript(paperControls,paperControls.scriptCode).statements,12);
+f=E.runClipScriptFrame(paperControls,0.5);assert(f,'Papercut script should evaluate: '+E.getClipScriptError(paperControls));
+assert.strictEqual(f.paper.enabled,true);assert.strictEqual(f.paper.edge,12);assert.strictEqual(f.paper.roughness,60);assert.strictEqual(f.paper.detail,75);assert.strictEqual(f.paper.grain,65);assert.strictEqual(f.paper.color,'#808080');assert.strictEqual(f.paper.boil,5);assert.strictEqual(f.paper.boilFps,12);assert.strictEqual(f.paper.boilLoop,6);assert.strictEqual(f.paper.shadow,35);assert.strictEqual(f.paper.shadowBlur,16);
+assert.strictEqual(E.runClipScriptFrame(paperControls,1.5).paper.enabled,false);
+assert.throws(()=>E.compileScript(paperControls,'at 0s tween paper.enabled = true over 1s'),/Boolean properties can only use set/);
 const aud=Object.assign({},clip,{kind:'audio',scriptCode:'set audio.volume = 0.5 + sin(time) * 0.2'});
 assert(Math.abs(E.runClipScriptFrame(aud,Math.PI/2).audio.volume-0.7)<1e-9);
 const audCue=Object.assign({},clip,{kind:'audio',scriptCode:'at 0s set audio.volume = 0.2\nat 1s tween audio.volume = 1 over 1s ease linear'});
