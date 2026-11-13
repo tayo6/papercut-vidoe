@@ -33,7 +33,7 @@ const mathClip=Object.assign({},clip,{scriptCode:[
  'set transform.scale = saw(time, 2)',
  'set transform.rotation = step(1, time)',
  'set transform.opacity = pulse(time, 2, 0.25)'
-].join('\\n')});
+].join('\n')});
 f=E.runClipScriptFrame(mathClip,0.25);
 assert.strictEqual(f.transform.x,0.75);
 assert.strictEqual(f.transform.y,0.5);
@@ -53,8 +53,8 @@ assert.strictEqual(f.transform.y,0.5);
 assert.strictEqual(f.transform.scale,0.5);
 assert.strictEqual(f.transform.rotation,2);
 assert.strictEqual(f.transform.opacity,0.5);
-assert.throws(()=>E.compileScript(clip,'set transform.x = smoothstep(0, 1)'),/smoothstep\\(\\) needs 3 arguments/);
-assert.throws(()=>E.compileScript(clip,'set transform.x = min(1)'),/min\\(\\) needs at least 2 arguments/);
+assert.throws(()=>E.compileScript(clip,'set transform.x = smoothstep(0, 1)'),/smoothstep\(\) needs 3 arguments/);
+assert.throws(()=>E.compileScript(clip,'set transform.x = min(1)'),/min\(\) needs at least 2 arguments/);
 const badRange=Object.assign({},clip,{scriptCode:'set transform.x = pingpong(time, 0)'});
 assert.strictEqual(E.runClipScriptFrame(badRange,1),null);
 assert(/period greater than zero/.test(E.getClipScriptError(badRange)));
