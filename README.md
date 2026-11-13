@@ -66,7 +66,7 @@ Scripts evaluate without modifying original keyframe tracks or base clip propert
 
 ## Project-level SnipScript
 
-Open the Project tab with no clip selected to edit one script for the whole timeline. Project scripts use absolute project time and can target multiple clips by their IDs. Use the clip picker to insert a target, then check and apply the script:
+Open the Project tab with no clip selected to edit one script for the whole timeline. Project scripts use absolute project time and can target multiple clips by their IDs or the stable aliases assigned in Script-driven Project Builder. Use the clip picker to insert a target, then check and apply the script:
 
     at 0s clip c1 set transform.scale = 0.7
     at 0.25s clip c1 tween transform.scale = 1 over 0.6s ease out
@@ -80,7 +80,7 @@ Open the Project tab with no clip selected to edit one script for the whole time
 
 Open the Project tab and use **Script-driven Project Builder** to create and arrange clips with a versioned JSON plan. This is a declarative plan, not JavaScript: the editor validates every track, media reference, timing value, overlap and property before changing the timeline. **Validate plan** only previews a summary; **Apply plan** makes one undoable change.
 
-The first version uses media already imported into the browser editor. The panel lists each imported Media ID. A clip can reference that ID (recommended) or an unambiguous media name. Named visual and audio tracks are created once and reused by name. Each clip has a stable alias; applying the same plan again updates those clips instead of duplicating them.
+The first version uses media already imported into the browser editor. The panel lists each imported Media ID. A clip can reference that ID (recommended) or an unambiguous media name. Named visual and audio tracks are created once and reused by name. Each clip has a stable alias; applying the same plan again updates those clips instead of duplicating them. Project SnipScript can target those clips by alias (for example, `clip hero-shot set transform.y = sin(time * 2) * 0.04`) as well as by generated clip ID.
 
 Example (text only):
 

@@ -579,6 +579,7 @@ function prepareProjectPlan(input) {
     planKeys(item, ['alias', 'media', 'type', 'content', 'track', 'start', 'duration', 'name', 'properties'], 'clip');
     var alias = planString(item.alias, label + ' alias', 40, true);
     if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(alias)) planFail(label + ' alias must start with a letter and contain only letters, numbers, "_" or "-".');
+    if (/^c[0-9]+$/i.test(alias)) planFail(label + ' alias cannot look like an automatically generated clip ID. Use a descriptive name instead.');
     var aliasKey = alias.toLowerCase();
     if (aliases[aliasKey]) planFail('Clip aliases must be unique: "' + alias + '".');
     aliases[aliasKey] = true;

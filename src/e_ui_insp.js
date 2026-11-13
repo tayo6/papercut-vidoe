@@ -994,7 +994,7 @@ function tabProject(c, b) {
   var projectTargets = h('select', { class: 'es', 'aria-label': 'Choose a clip to target' });
   function refreshProjectTargets() {
     projectTargets.textContent = '';
-    E.proj.clips.forEach(function (q) { projectTargets.appendChild(h('option', { value: q.id, text: (q.name || q.kind) + ' · ' + q.id })); });
+    E.proj.clips.forEach(function (q) { var target = q.scriptAlias || q.id; projectTargets.appendChild(h('option', { value: target, text: (q.name || q.kind) + ' · ' + (q.scriptAlias ? q.scriptAlias + ' (' + q.id + ')' : q.id) })); });
     projectTargets.disabled = !E.proj.clips.length;
   }
   var projectCode = h('textarea', { class: 'ti script-code', rows: 8, spellcheck: 'false', 'aria-label': 'Project SnipScript code' });
@@ -1043,7 +1043,7 @@ function tabProject(c, b) {
   b.appendChild(projectCode);
   b.appendChild(h('div', { class: 'script-actions' }, [insertTarget, insertTween, checkProject, applyProject, disableProject]));
   b.appendChild(projectStatus);
-  b.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets support transform.*, paper.*, text.* and audio.* when available on that clip.'));
+  b.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets accept clip IDs or Script Builder aliases; properties support transform.*, paper.*, text.* and audio.* when available on that clip.'));
 
 
   b.appendChild(sec('Script-driven Project Builder'));

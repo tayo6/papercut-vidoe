@@ -158,7 +158,7 @@ function parseProjectProgram(source){
   var line=lines[i].trim();if(!line||line.charAt(0)==='#')continue;line=line.replace(/\/\/.*$/,'').trim();if(!line)continue;
   var timed=line.match(/^at\s+(\d+(?:\.\d*)?|\.\d+)\s*s?\s+clip\s+([a-z0-9_-]+)\s+(.+)$/i),plain=line.match(/^clip\s+([a-z0-9_-]+)\s+(.+)$/i),id=timed?timed[2]:plain?plain[1]:null,directive=timed?('at '+timed[1]+'s '+timed[3]):plain?plain[2]:null;
   if(!id)fail(i+1,'Use: clip <clip-id> set property = expression, or at 0s clip <clip-id> tween property = value over 1s ease out.');
-  var clip=E.clipById(id);if(!clip)fail(i+1,'Unknown clip target "'+id+'".');
+  var clip=E.clipById(id);if(!clip&&E.proj&&Array.isArray(E.proj.clips)){var aliasKey=String(id).toLowerCase();for(var ai=0;ai<E.proj.clips.length;ai++){var candidate=E.proj.clips[ai];if(candidate.scriptAlias&&String(candidate.scriptAlias).toLowerCase()===aliasKey){clip=candidate;id=clip.id;break;}}}if(!clip)fail(i+1,'Unknown clip target "'+id+'".');
   var parsed;
   try{parsed=parseProgram(clip,directive,{maxTime:duration});}
   catch(err){var msg=err&&err.message?err.message:String(err);var lm=msg.match(/^Line \d+:\s*(.*)$/);fail(i+1,lm?lm[1]:msg);}
@@ -178,7 +178,7 @@ function parseProjectProgram(source){
  return {groups:groups,statements:total,targets:Object.keys(groups),duration:duration};
 }
 function projectKey(project,source){
- return source+'\u001f'+E.end()+'\u001f'+project.clips.map(function(c){return [c.id,c.kind,c.start,c.dur].join(':');}).join('|');
+ return source+'\u001f'+E.end()+'\u001f'+project.clips.map(function(c){return [c.id,c.scriptAlias||'',c.kind,c.start,c.dur].join(':');}).join('|');
 }
 function projectProgramFor(){
  var project=E.proj,source=String(project.projectScriptCode||''),key=projectKey(project,source),old=PROJECT_CACHE.get(project);

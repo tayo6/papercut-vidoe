@@ -145,6 +145,7 @@ rejectsWithoutMutation({
   version: 1,
   clips: [{ alias: 'bad-alias!', type: 'text', content: 'Text', start: 0, duration: 2 }]
 }, /alias must start with a letter/);
+rejectsWithoutMutation({ version: 1, clips: [{ alias: 'c123', type: 'text', content: 'Text', start: 0, duration: 2 }] }, /automatically generated clip ID/);
 
 E.newProject('16:9');
 const defaultVisual = E.proj.rows.find(row => row.kind === 'v');

@@ -133,8 +133,8 @@ assert.strictEqual(E.listScriptPresets().length,1);
 
 
 /* Project SnipScript uses the project clock and can coordinate separate clips. */
-const projectVideo=Object.assign({},clip,{id:'project-video',kind:'video',start:0,dur:4,values:Object.assign({},base)});
-const projectText=Object.assign({},tx,{id:'project-text',kind:'text',start:2,dur:3,values:Object.assign({},base)});
+const projectVideo=Object.assign({},clip,{id:'project-video',scriptAlias:'hero-shot',kind:'video',start:0,dur:4,values:Object.assign({},base)});
+const projectText=Object.assign({},tx,{id:'project-text',scriptAlias:'title-card',kind:'text',start:2,dur:3,values:Object.assign({},base)});
 E.proj={clips:[projectVideo,projectText],projectScriptCode:[
  'at 0s clip project-video set transform.scale = 0.5',
  'at 1s clip project-video tween transform.scale = 1 over 1s ease linear',
@@ -160,5 +160,19 @@ E.proj.projectScriptEnabled=false;
 assert.strictEqual(E.runProjectScriptFrame(projectVideo,1.5),null);
 E.proj.projectScriptEnabled=true;
 assert(E.getProjectScriptTargets(projectText).includes('transform.y'));
+const aliasProjectCode=[
+ 'clip hero-shot set transform.x = 0.25',
+ 'at 2s clip title-card tween text.fontSize = 180 over 1s ease linear'
+].join('\n');
+E.proj.projectScriptCode=aliasProjectCode;
+const aliasProjectCheck=E.compileProjectScript(aliasProjectCode);
+assert.deepStrictEqual(Array.from(aliasProjectCheck.targets).sort(),['project-text','project-video']);
+projectFrame=E.runProjectScriptFrame(projectVideo,2.5);
+assert.strictEqual(projectFrame.transform.x,0.25);
+projectFrame=E.runProjectScriptFrame(projectText,2.5);
+assert.strictEqual(projectFrame.text.fontSize,150);
+projectFrame=E.runProjectScriptFrame(projectText,2.75);
+assert.strictEqual(projectFrame.text.fontSize,165);
+
 
 console.log('SnipScript v2, project script orchestration, project library, easing and custom Bezier tests passed.');
