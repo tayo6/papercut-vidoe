@@ -218,6 +218,6 @@ assert.deepStrictEqual(Array.from(E.getSceneScriptTargets(projectVideo)),[]);
 introScene.scriptEnabled=true;
 introScene.scriptCode='clip hero-shot set transform.x = time * 0.1';
 sceneFrame=E.runSceneScriptFrame(introScene,projectVideo,13);
-assert.strictEqual(sceneFrame.transform.x,0.3,'Changing scene code must invalidate its cached program.');
+assert(Math.abs(sceneFrame.transform.x-0.3)<1e-9,'Changing scene code must invalidate its cached program.');
 
 console.log('SnipScript v2, project script orchestration, project library, easing and custom Bezier tests passed.');
