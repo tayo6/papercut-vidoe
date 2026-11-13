@@ -16,6 +16,19 @@ assert.strictEqual(E.easeProgress('inout',0.25),0.125);
 assert.strictEqual(E.easeProgress('smooth',0.25),0.15625);
 assert.strictEqual(E.easeProgress('linear',-1),0);
 assert.strictEqual(E.easeProgress('linear',2),1);
+assert(Math.abs(E.easeProgress('sine-out',0.5)-Math.SQRT1_2)<1e-12);
+assert(Math.abs(E.easeProgress('cubic-out',0.5)-0.875)<1e-12);
+assert(E.easeProgress('back-out',0.5)>1,'Back easing should allow a controlled overshoot.');
+['sine','cubic','quart','quint','expo','circ','back','bounce','elastic'].forEach(family=>{
+ ['in','out','inout'].forEach(mode=>{
+  const name=family+'-'+mode;
+  assert.strictEqual(E.easeProgress(name,0),0,name+' should start at zero');
+  assert.strictEqual(E.easeProgress(name,1),1,name+' should end at one');
+  assert(Number.isFinite(E.easeProgress(name,0.4)),name+' should be finite');
+ });
+});
+
+
 const standardBezier={x1:0.25,y1:0.1,x2:0.25,y2:1};
 assert(Math.abs(E.cubicBezierProgress(standardBezier,0.5)-0.8024024)<1e-5);
 for(let sample=0;sample<=20;sample++){
@@ -31,6 +44,40 @@ const clip={id:'c1',kind:'video',dur:4,values:Object.assign({},base),scriptEnabl
 let c=E.compileScript(clip,clip.scriptCode);assert.strictEqual(c.statements,2);assert.strictEqual(c.events,0);
 let f=E.runClipScriptFrame(clip,0);assert(Math.abs(f.transform.y)<1e-9);assert.strictEqual(f.transform.opacity,1);
 f=E.runClipScriptFrame(clip,2);assert(Math.abs(f.transform.y-Math.sin(4)*0.04)<1e-9);assert.strictEqual(f.transform.opacity,0.5);
+const mathClip=Object.assign({},clip,{scriptCode:[
+ 'set transform.x = fract(-1.25)',
+ 'set transform.y = smootherstep(0, 1, 0.5)',
+ 'set transform.scale = saw(time, 2)',
+ 'set transform.rotation = step(1, time)',
+ 'set transform.opacity = pulse(time, 2, 0.25)'
+].join('\n')});
+f=E.runClipScriptFrame(mathClip,0.25);
+assert.strictEqual(f.transform.x,0.75);
+assert.strictEqual(f.transform.y,0.5);
+assert.strictEqual(f.transform.scale,0.125);
+assert.strictEqual(f.transform.rotation,0);
+assert.strictEqual(f.transform.opacity,1);
+const loopClip=Object.assign({},clip,{scriptCode:[
+ 'set transform.x = pingpong(time, 2) / 2',
+ 'set transform.y = triangle(time, 2)',
+ 'set transform.scale = smoothstep(0, 1, 0.5)',
+ 'set transform.rotation = wrap(-1, 0, 3)',
+ 'set transform.opacity = remap(5, 0, 10, 0, 1)'
+].join('\n')});
+f=E.runClipScriptFrame(loopClip,2.5);
+assert.strictEqual(f.transform.x,0.75);
+assert.strictEqual(f.transform.y,0.5);
+assert.strictEqual(f.transform.scale,0.5);
+assert.strictEqual(f.transform.rotation,2);
+assert.strictEqual(f.transform.opacity,0.5);
+assert.throws(()=>E.compileScript(clip,'set transform.x = smoothstep(0, 1)'),/smoothstep\(\) needs 3 arguments/);
+assert.throws(()=>E.compileScript(clip,'set transform.x = min(1)'),/min\(\) needs at least 2 arguments/);
+const badRange=Object.assign({},clip,{scriptCode:'set transform.x = pingpong(time, 0)'});
+assert.strictEqual(E.runClipScriptFrame(badRange,1),null);
+assert(/period greater than zero/.test(E.getClipScriptError(badRange)));
+const namedTween=Object.assign({},clip,{scriptCode:'at 0s tween transform.scale = 2 over 1s ease bounce-out'});
+assert.strictEqual(E.compileScript(namedTween,namedTween.scriptCode).events,1);
+assert(Math.abs(E.runClipScriptFrame(namedTween,0.5).transform.scale-1.765625)<1e-9);
 const cues=Object.assign({},clip,{scriptCode:'at 0s set transform.scale = 0.5\nat 1s tween transform.scale = 1 over 1s ease out'});
 assert.strictEqual(E.compileScript(cues,cues.scriptCode).events,2);assert.strictEqual(E.runClipScriptFrame(cues,0.5).transform.scale,0.5);
 const movedCues=Object.assign({},cues,{scriptCode:cues.scriptCode});

@@ -34,8 +34,17 @@ Timed events and tweens run against the clip's local timeline:
     at 0s set transform.scale = 0.7
     at 0.5s tween transform.scale = 1 over 0.4s ease out
     at 1s tween paper.edge = 45 over 0.5s ease inout
+    at 1.5s tween transform.rotation = 12 over 0.4s ease back-out
 
-Available variables: time (seconds since the clip starts), duration, progress (0–1), and pi. Math functions include sin, cos, tan, abs, min, max, clamp, lerp, round, floor, ceil, sqrt, pow, sign, and rgb. Boolean literals `true` and `false` are supported for discrete switches; boolean properties use `set`, not `tween`.
+Continuous motion can loop or pulse with the clip clock:
+
+    set transform.x = pingpong(time, 2) * 0.2 - 0.1
+    set transform.y = sin(time * 3) * 0.04
+    set transform.opacity = pulse(time, 1, 0.7)
+
+Timed tween easing supports `linear`, `in`, `out`, `inout`, `smooth`, `sine-in/out/inout`, `cubic-in/out/inout`, `quart-in/out/inout`, `quint-in/out/inout`, `expo-in/out/inout`, `circ-in/out/inout`, `back-in/out/inout`, `bounce-in/out/inout`, `elastic-in/out/inout`, and custom `cubic-bezier(x1, y1, x2, y2)` curves. Back and elastic easings can overshoot their target, which is useful for expressive movement.
+
+Available variables: time (seconds since the clip starts), duration, progress (0–1), and pi. Math functions include sin, cos, tan, abs, min, max, clamp, lerp, fract, wrap, pingpong, saw, triangle, step, pulse, smoothstep, smootherstep, remap, round, floor, ceil, sqrt, pow, sign, and rgb. These helpers make repeating, back-and-forth, pulsing and eased expression-based motion possible without adding visual keyframes. Boolean literals `true` and `false` are supported for discrete switches; boolean properties use `set`, not `tween`.
 
 Papercut can be switched on and shaped by script, including its colour, detail, grain, boil and shadow:
 
