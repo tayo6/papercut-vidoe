@@ -236,7 +236,7 @@ function motionEditor(c) {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
           var rect = track.getBoundingClientRect(); if (!rect.width || !rect.height) return;
           suppressPointerClick = false;
-          laneDrag = { pid: e.pointerId, sx: e.clientX, sy: e.clientY, time: key.t, value: key.v,
+          laneDrag = { pid: e.pointerId, sx: e.clientX, sy: e.clientY, time: key.t, startTime: key.t, value: key.v,
             rect: rect, domain: domain, moved: false };
           E.pause();
           if (marker.setPointerCapture) { try { marker.setPointerCapture(e.pointerId); } catch (err) {} }
@@ -247,8 +247,7 @@ function motionEditor(c) {
           var dx = e.clientX - d.sx, dy = e.clientY - d.sy;
           if (!d.moved && Math.sqrt(dx * dx + dy * dy) < 4) return;
           d.moved = true;
-          var progress = clamp((e.clientX - d.rect.left) / d.rect.width, 0, 1);
-          var targetTime = Math.round(progress * c.dur * 100) / 100;
+          var targetTime = Math.round(clamp(d.startTime + (dx / d.rect.width) * c.dur, 0, c.dur) * 100) / 100;
           var got = E.movePropertyKfTime(c, info.p, d.time, targetTime);
           d.time = got;
           var valueSpan = Math.max(1e-6, d.domain.max - d.domain.min);
