@@ -94,4 +94,22 @@ assert.equal(E.movePropertyKfTime(laneClip, 'y', 4, 2), 4);
 assert.equal(E.movePropertyKfTime(laneClip, 'rotation', 0, 1), 0);
 assert.equal(JSON.stringify(laneClip.kf.x.map(k => k.t)), JSON.stringify([3, 6]));
 
+
 console.log('Independent property keyframe drag tests passed.');
+
+const valueClip = E.newClip('image', { dur: 5 });
+E.addKf(valueClip, 'x', 0);
+E.addKf(valueClip, 'x', 2);
+E.addKf(valueClip, 'y', 0);
+E.setPropertyKfValue(valueClip, 'x', 0, -0.35);
+assert.equal(valueClip.kf.x[0].v, -0.35);
+assert.equal(valueClip.kf.x[1].v, 0);
+assert.equal(valueClip.kf.y[0].v, 0);
+E.movePropertyKfTime(valueClip, 'x', 0, 1.25);
+E.setPropertyKfValue(valueClip, 'x', 1.25, 0.6);
+assert.equal(E.kfIndex(valueClip, 'x', 1.25), 0);
+assert.equal(valueClip.kf.x[0].v, 0.6);
+assert.throws(() => E.setPropertyKfValue(valueClip, 'x', 1.25, 1.5), /outside the supported range/);
+assert.throws(() => E.setPropertyKfValue(valueClip, 'x', 4, 0), /no longer exists/);
+
+console.log('Direct property keyframe value editing tests passed.');
