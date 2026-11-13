@@ -61,6 +61,12 @@ Use a text clip with type "text" and a content field instead of media when neede
 
 The Unified Project Script editor supports .snip files (JSON content), as well as ordinary copy and paste. Use **Import .snip file** to load a script as a draft, **Copy script** to move it between ChatGPT and Snipwork, or **Download .snip file** to keep the current draft. Importing never changes the timeline. Run **Validate entire project** before applying. **Apply & Preview** validates, applies one undoable project change and starts playback from the beginning. You can also apply without starting playback. Media files remain separate: import them into the Media library first, then use their current Media IDs in the script.
 
+## Built-in Mary Had a Little Lamb showcase
+
+Open the **Project** tab and choose **Load Mary demo** in the Unified Project Script section. This loads an eight-scene, approximately 47-second, media-free lyric animation as a draft. It uses the public-domain song lyrics as torn-paper typography, alternating visual tracks, oversized paper-burst words, high-roughness cut edges, stop-motion paper boil, scene crossfades, and a mix of elastic, bounce, back, expo, circular, quintic and custom cubic-Bezier entrances. Scene scripts add floating movement; the project script drives the burst rotation and scale.
+
+Choose **Validate entire project**, then **Apply & Preview**. Use **Download .snip file** to save or share the demo. No images, video or music file is required; this is an animated visual lyric demo, not a recording of the song. Import a soundtrack separately on an audio lane if you want sound.
+
 ## SnipScript v2
 
 Select an image, video, text or audio clip, then open Edit → Script. SnipScript is a restricted expression language, not JavaScript. It cannot access the DOM, network, storage, imports or arbitrary browser APIs.
