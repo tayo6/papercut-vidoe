@@ -1,0 +1,129 @@
+<div id="ed" class="ed" role="application" aria-label="Video editor">
+  <header class="ed-top">
+    <button class="eb" id="edBack" type="button" title="Back to the effects lab"><span data-ic="chev"></span><span class="lbl">Lab</span></button>
+    <input id="edName" class="ed-name" type="text" value="Untitled" aria-label="Project name" maxlength="60" autocomplete="off">
+    <span class="sp"></span>
+    <button class="eb ic" id="edUndo" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" data-ic="undo"></button>
+    <button class="eb ic" id="edRedo" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-ic="redo"></button>
+    <button class="eb acc" id="edExport" type="button"><span data-ic="export"></span><span class="lbl">Export</span></button>
+  </header>
+
+  <div class="ed-main">
+    <aside class="ed-lib" id="edLib" aria-label="Library">
+      <div class="ed-tabs" id="libTabs" role="tablist" aria-label="Library"></div>
+      <div class="ed-panel" id="libBody"></div>
+      <button class="sheet-x" type="button" data-sheetx aria-label="Close panel" data-ic="close"></button>
+    </aside>
+
+    <section class="ed-player" id="edPlayer" aria-label="Preview">
+      <div class="ed-stagewrap" id="edStageWrap">
+        <div class="ed-stage" id="edStage">
+          <canvas id="edCanvas" width="960" height="540" aria-label="Video preview"></canvas>
+          <div class="ed-ov" id="edOv">
+            <i class="gd gv" id="gdV" hidden></i><i class="gd gh" id="gdH" hidden></i>
+            <div class="bx" id="edBox" hidden>
+              <i class="hd c1" data-h="s"></i><i class="hd c2" data-h="s"></i><i class="hd c3" data-h="s"></i><i class="hd c4" data-h="s"></i>
+              <i class="rstem"></i><i class="hd rot" data-h="r"></i>
+            </div>
+          </div>
+          <div class="ed-empty" id="edEmpty">
+            <div class="em-card">
+              <div class="em-ic" data-ic="film"></div>
+              <h2>Start a cut-out video</h2>
+              <p>Import photos, video clips and music, then add paper cut-outs, folds and animations from the panels.</p>
+              <div class="em-act">
+                <button class="eb acc" id="emImport" type="button"><span data-ic="plus"></span>Import media</button>
+                <button class="eb" id="emDemo" type="button"><span data-ic="sparkle"></span>Try a demo</button>
+              </div>
+              <small>You can also drop files here.</small>
+            </div>
+          </div>
+          <div class="ed-drop" id="edDrop">Drop to add to the timeline</div>
+        </div>
+      </div>
+      <div class="ed-trans">
+        <div class="tm"><b id="edTime">00:00:00</b><span class="of"> / <span id="edTotal">00:00:00</span></span></div>
+        <div class="mid">
+          <button class="eb ic" id="edStart" type="button" title="Go to start (Home)" aria-label="Go to start" data-ic="skip"></button>
+          <button class="eb ic big" id="edPlay" type="button" title="Play / pause (Space)" aria-label="Play"></button>
+          <button class="eb ic" id="edMute" type="button" title="Preview sound on or off" aria-label="Mute preview" aria-pressed="false"></button>
+        </div>
+        <div class="rt"><label class="rat"><span class="sr">Frame shape</span><select id="edRatio" aria-label="Frame shape"></select></label></div>
+      </div>
+    </section>
+
+    <aside class="ed-insp" id="edInsp" aria-label="Properties">
+      <div class="ed-tabs" id="inspTabs" role="tablist" aria-label="Properties"></div>
+      <div class="ed-panel" id="inspBody"></div>
+      <button class="sheet-x" type="button" data-sheetx aria-label="Close panel" data-ic="close"></button>
+    </aside>
+  </div>
+
+  <section class="ed-tl" id="edTl" aria-label="Timeline">
+    <div class="tl-tools" id="tlTools">
+      <button class="eb ic" id="tlUndo" type="button" title="Undo" aria-label="Undo" data-ic="undo"></button>
+      <button class="eb ic" id="tlRedo" type="button" title="Redo" aria-label="Redo" data-ic="redo"></button>
+      <i class="vr"></i>
+      <button class="eb tt" id="tlSplit" type="button" title="Split at the playhead (S)"><span data-ic="split"></span><span class="lbl">Split</span></button>
+      <button class="eb tt" id="tlDup" type="button" title="Duplicate (Ctrl+D)"><span data-ic="copy"></span><span class="lbl">Duplicate</span></button>
+      <button class="eb tt" id="tlDel" type="button" title="Delete (Delete)"><span data-ic="trash"></span><span class="lbl">Delete</span></button>
+      <span class="sp"></span>
+      <button class="eb ic" id="tlSnap" type="button" title="Snap to clip edges" aria-label="Snap to clip edges" aria-pressed="true" data-ic="magnet"></button>
+      <button class="eb ic" id="tlZoomOut" type="button" title="Zoom out (-)" aria-label="Zoom out" data-ic="zout"></button>
+      <input id="tlZoom" type="range" min="20" max="300" value="80" aria-label="Timeline zoom">
+      <button class="eb ic" id="tlZoomIn" type="button" title="Zoom in (+)" aria-label="Zoom in" data-ic="zin"></button>
+      <button class="eb ic" id="tlFit" type="button" title="Fit the whole project" aria-label="Fit timeline" data-ic="fit"></button>
+    </div>
+    <div class="tl-track-tools" role="group" aria-label="Add timeline tracks">
+      <button class="eb tt" id="tlAddVideo" type="button" title="Add a video track"><span data-ic="video"></span><span class="lbl">+ Video track</span></button>
+      <button class="eb tt" id="tlAddAudio" type="button" title="Add an audio track"><span data-ic="music"></span><span class="lbl">+ Audio track</span></button>
+    </div>
+    <div class="tl-bar" id="tlBar" role="group" aria-label="Selected clip: timing and keyframes">
+      <p class="tb-empty" id="tbEmpty">Select a clip to type its start and end times and to add keyframes.</p>
+      <div class="tb-grp" id="tbTime" hidden></div>
+      <div class="tb-grp" id="tbKf" hidden></div>
+    </div>
+    <div class="tl-scroll" id="tlScroll"><div class="tl-inner" id="tlInner"></div></div>
+  </section>
+
+  <nav class="ed-bar" id="edBar" aria-label="Panels">
+    <button type="button" data-bar="media"><span data-ic="image"></span>Media</button>
+    <button type="button" data-bar="audio"><span data-ic="music"></span>Audio</button>
+    <button type="button" data-bar="text"><span data-ic="text"></span>Text</button>
+    <button type="button" data-bar="fx"><span data-ic="sparkle"></span>Effects</button>
+    <button type="button" data-bar="insp"><span data-ic="sliders"></span>Edit</button>
+  </nav>
+
+  <div class="ed-toast" id="edToast" role="status" aria-live="polite"></div>
+  <input type="file" id="edFile" class="sr" multiple accept="image/*,video/*,audio/*" tabindex="-1" aria-label="Import files">
+
+  <div class="ed-modal" id="expModal" hidden role="dialog" aria-modal="true" aria-labelledby="expTitle">
+    <div class="md-card">
+      <div class="md-head"><h2 id="expTitle">Export video</h2><button class="eb ic" id="expClose" type="button" aria-label="Close" data-ic="close"></button></div>
+      <div class="md-body">
+        <div class="md-grid">
+          <div class="md-prev"><canvas id="expPrev" width="320" height="180"></canvas></div>
+          <div class="md-form">
+            <label class="fld"><span>Name</span><input type="text" id="expName" maxlength="60" autocomplete="off"></label>
+            <label class="fld"><span>Resolution</span><select id="expRes"></select></label>
+            <label class="fld"><span>Frame rate</span><select id="edxFps"><option value="24">24 fps</option><option value="30" selected>30 fps</option><option value="60">60 fps</option></select></label>
+            <label class="fld"><span>Quality</span><select id="expQ"><option value="0.7">Standard</option><option value="1" selected>High</option><option value="1.6">Best</option></select></label>
+            <label class="fld"><span>Format</span><select id="expFmt"></select></label>
+            <label class="chk"><input type="checkbox" id="expAudio" checked><span>Include audio</span></label>
+          </div>
+        </div>
+        <p class="md-info" id="expInfo"></p>
+        <div class="md-prog" id="expProg" hidden>
+          <div class="pbar"><i id="expBar"></i></div>
+          <p id="expMsg" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="md-foot">
+        <button class="eb" id="expFrame" type="button">Save frame as PNG</button>
+        <span class="sp"></span>
+        <button class="eb" id="expCancel" type="button">Cancel</button>
+        <button class="eb acc" id="expGo" type="button"><span data-ic="export"></span><span class="lbl">Export</span></button>
+      </div>
+    </div>
+  </div>
+</div>
