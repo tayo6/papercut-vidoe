@@ -366,3 +366,10 @@ body.ed-on .wrap { display: none; }
   .ed .script-easing-head { align-items: flex-start; flex-direction: column; gap: 3px; }
   .ed .script-easing-caption { text-align: left; }
 }
+
+
+/* SnipScript custom cubic-Bezier controls */
+.ed .script-bezier-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 8px 0; }
+.ed .script-bezier-grid[hidden] { display: none; }
+.ed .script-bezier-grid .script-cue-field .ti { min-height: 34px; }
+@media (max-width: 520px) { .ed .script-bezier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -257,9 +257,11 @@ function tabScript(c, b) {
     h('option', { value: 'linear', text: 'Linear' }),
     h('option', { value: 'in', text: 'Ease in' }),
     h('option', { value: 'out', text: 'Ease out' }),
-    h('option', { value: 'inout', text: 'Ease in and out' })
+    h('option', { value: 'inout', text: 'Ease in and out' }),
+    h('option', { value: 'custom', text: 'Custom Bezier' })
   ]);
   var cueEaseInfo = {
+    custom: { label: 'Custom Bezier', description: 'Adjust the four control points to shape the motion.' },
     smooth: { label: 'Smooth', description: 'A gradual start and finish.' },
     linear: { label: 'Linear', description: 'Moves at a constant speed.' },
     'in': { label: 'Ease in', description: 'Starts gently, then accelerates.' },
@@ -272,15 +274,33 @@ function tabScript(c, b) {
     h('div', { class: 'script-easing-head' }, [h('strong', { text: 'Curve preview' }), cueCurveCaption]),
     cueCurve
   ]);
+  var cueBezierInputs = {
+    x1: h('input', { class: 'ti', type: 'number', min: 0, max: 1, step: 0.01, value: 0.25, 'aria-label': 'Bezier first control X' }),
+    y1: h('input', { class: 'ti', type: 'number', min: -0.25, max: 1.25, step: 0.01, value: 0.1, 'aria-label': 'Bezier first control Y' }),
+    x2: h('input', { class: 'ti', type: 'number', min: 0, max: 1, step: 0.01, value: 0.25, 'aria-label': 'Bezier second control X' }),
+    y2: h('input', { class: 'ti', type: 'number', min: -0.25, max: 1.25, step: 0.01, value: 1, 'aria-label': 'Bezier second control Y' })
+  };
+  var cueBezierGrid = h('div', { class: 'script-bezier-grid' }, [
+    cueField('Control X1', cueBezierInputs.x1),cueField('Control Y1', cueBezierInputs.y1),
+    cueField('Control X2', cueBezierInputs.x2),cueField('Control Y2', cueBezierInputs.y2)
+  ]);
+  function readBezierCurve() {
+    var curve={x1:Number(cueBezierInputs.x1.value),y1:Number(cueBezierInputs.y1.value),x2:Number(cueBezierInputs.x2.value),y2:Number(cueBezierInputs.y2.value)};
+    if(![curve.x1,curve.y1,curve.x2,curve.y2].every(function(v){return isFinite(v);}))throw new Error('Enter four finite Bezier control values.');
+    if(curve.x1<0||curve.x1>1||curve.x2<0||curve.x2>1)throw new Error('Bezier X values must be between 0 and 1.');
+    if(curve.y1<-.25||curve.y1>1.25||curve.y2<-.25||curve.y2>1.25)throw new Error('Bezier Y values must be between -0.25 and 1.25.');
+    return curve;
+  }
   function renderEaseCurve() {
-    var ease = cueEase.value, info = cueEaseInfo[ease] || cueEaseInfo.smooth, points = [];
+    var ease = cueEase.value, info = cueEaseInfo[ease] || cueEaseInfo.smooth, points = [], curve=null;
+    if(ease==='custom'){try{curve=readBezierCurve();}catch(e){curve={x1:.25,y1:.1,x2:.25,y2:1};}}
     for (var i = 0; i <= 32; i++) {
-      var x = i / 32, y = E.easeProgress(ease, x);
-      points.push((10 + x * 180).toFixed(2) + ',' + (68 - y * 58).toFixed(2));
+      var x = i / 32, y = ease==='custom' ? E.cubicBezierProgress(curve,x) : E.easeProgress(ease,x);
+      points.push((10 + x * 180).toFixed(2) + ',' + (65 - y * 44).toFixed(2));
     }
     cueCurve.innerHTML = '<svg viewBox="0 0 200 78" aria-hidden="true" focusable="false">' +
-      '<path class="script-easing-grid" d="M10 10H190 M10 39H190 M10 68H190 M10 10V68 M100 10V68 M190 10V68" />' +
-      '<path class="script-easing-guide" d="M10 68L190 10" />' +
+      '<path class="script-easing-grid" d="M10 10H190 M10 43H190 M10 76H190 M10 10V76 M100 10V76 M190 10V76" />' +
+      '<path class="script-easing-guide" d="M10 65L190 21" />' +
       '<polyline class="script-easing-line" points="' + points.join(' ') + '" />' +
       '</svg>';
     cueCurveCaption.textContent = info.label + ' · ' + info.description;
@@ -334,11 +354,13 @@ function tabScript(c, b) {
     cueEaseField.hidden = !tween;
     cuePresetPanel.hidden = !tween;
     cueCurvePanel.hidden = !tween;
+    cueBezierGrid.hidden = !tween || cueEase.value !== 'custom';
     renderEaseCurve();
   }
   cueTarget.addEventListener('change', fillCueValue);
   cueMode.addEventListener('change', updateCueMode);
-  cueEase.addEventListener('change', renderEaseCurve);
+  cueEase.addEventListener('change', updateCueMode);
+  Object.keys(cueBezierInputs).forEach(function(key){cueBezierInputs[key].addEventListener('input',renderEaseCurve);});
   var cueAtPlayhead = sb('Use playhead', function () { cueTime.value = String(round(E.localT(c), 2)); fillCueValue(); });
   var cueAdd = sb('Add cue', function () { writeVisualCue(); });
   var cueCancel = sb('Cancel edit', function () { resetVisualCue(); });
@@ -349,9 +371,12 @@ function tabScript(c, b) {
     if (!m) return null;
     var data = { at: Number(m[1]), mode: m[2].toLowerCase(), property: m[3], value: m[4], duration: 0, ease: 'smooth' };
     if (data.mode === 'tween') {
-      var tw = data.value.match(/^(.+?)\s+over\s+(\d+(?:\.\d*)?|\.\d+)\s*s(?:\s+ease\s+(linear|in|out|inout|smooth))?$/i);
+      var tw = data.value.match(/^(.+?)\s+over\s+(\d+(?:\.\d*)?|\.\d+)\s*s(?:\s+ease\s+(.+))?$/i);
       if (!tw) return null;
-      data.value = tw[1]; data.duration = Number(tw[2]); data.ease = (tw[3] || 'smooth').toLowerCase();
+      data.value = tw[1]; data.duration = Number(tw[2]);
+      var spec=(tw[3]||'smooth').trim().toLowerCase(), custom=spec.match(/^cubic-bezier\s*\(\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*\)$/i);
+      if(custom){data.ease='custom';data.bezier={x1:Number(custom[1]),y1:Number(custom[2]),x2:Number(custom[3]),y2:Number(custom[4])};}
+      else data.ease=spec;
     }
     return data;
   }
@@ -382,6 +407,7 @@ function tabScript(c, b) {
         cueValue.value = data.value;
         cueDuration.value = data.duration ? String(data.duration) : '0.5';
         cueEase.value = data.ease;
+        if(data.bezier){Object.keys(cueBezierInputs).forEach(function(key){cueBezierInputs[key].value=String(data.bezier[key]);});}
         updateCueMode();
         cueAdd.textContent = 'Update cue';
         cueCancel.hidden = false;
@@ -407,6 +433,7 @@ function tabScript(c, b) {
     cueTime.value = String(round(E.localT(c), 2));
     cueMode.value = 'set';
     cueEase.value = 'smooth';
+    cueBezierInputs.x1.value='0.25';cueBezierInputs.y1.value='0.1';cueBezierInputs.x2.value='0.25';cueBezierInputs.y2.value='1';
     updateCueMode();
     fillCueValue();
     cueAdd.textContent = 'Add cue';
@@ -430,6 +457,7 @@ function tabScript(c, b) {
       var line = 'at ' + round(at, 2) + 's ' + mode + ' ' + prop + ' = ' + value;
       if (mode === 'tween') {
         if (!isFinite(duration) || duration <= 0 || at + duration > c.dur + 1e-6) throw new Error('Tween duration must be positive and finish before this clip ends.');
+        if(ease==='custom'){var curve=readBezierCurve();function fmt(v){return String(Math.round(v*1000)/1000);}ease='cubic-bezier('+fmt(curve.x1)+', '+fmt(curve.y1)+', '+fmt(curve.x2)+', '+fmt(curve.y2)+')';}
         line += ' over ' + round(duration, 2) + 's ease ' + ease;
       }
       var lines = (ta.value || '').split(/\r?\n/), candidate;
@@ -460,6 +488,7 @@ function tabScript(c, b) {
   ]));
   cueEditor.appendChild(hint('For a tween, choose its duration and easing. The visual value field accepts numbers and six-digit hex colours; use the code editor for expressions.'));
   cueEditor.appendChild(cuePresetPanel);
+  cueEditor.appendChild(cueBezierGrid);
   cueEditor.appendChild(cueCurvePanel);
   cueEditor.appendChild(h('div', { class: 'script-actions' }, [cueAtPlayhead, cueAdd, cueCancel]));
   cueCancel.hidden = true;
