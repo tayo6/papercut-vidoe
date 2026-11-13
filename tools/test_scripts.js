@@ -16,10 +16,11 @@ let f=E.runClipScriptFrame(clip,0);assert(Math.abs(f.transform.y)<1e-9);assert.s
 f=E.runClipScriptFrame(clip,2);assert(Math.abs(f.transform.y-Math.sin(4)*0.04)<1e-9);assert.strictEqual(f.transform.opacity,0.5);
 const cues=Object.assign({},clip,{scriptCode:'at 0s set transform.scale = 0.5\nat 1s tween transform.scale = 1 over 1s ease out'});
 assert.strictEqual(E.compileScript(cues,cues.scriptCode).events,2);assert.strictEqual(E.runClipScriptFrame(cues,0.5).transform.scale,0.5);
-const listed=E.listClipScriptCues(cues);assert.strictEqual(listed.length,2);assert.strictEqual(listed[1].line,2);
-assert.strictEqual(E.moveClipScriptCue(cues,2,1.5),1.5);assert(cues.scriptCode.includes('at 1.5s tween transform.scale'));
-assert.strictEqual(E.listClipScriptCues(cues)[1].at,1.5);
-assert.throws(()=>E.moveClipScriptCue(cues,99,2),/no longer exists/);
+const movedCues=Object.assign({},cues,{scriptCode:cues.scriptCode});
+const listed=E.listClipScriptCues(movedCues);assert.strictEqual(listed.length,2);assert.strictEqual(listed[1].line,2);
+assert.strictEqual(E.moveClipScriptCue(movedCues,2,1.5),1.5);assert(movedCues.scriptCode.includes('at 1.5s tween transform.scale'));
+assert.strictEqual(E.listClipScriptCues(movedCues)[1].at,1.5);
+assert.throws(()=>E.moveClipScriptCue(movedCues,99,2),/no longer exists/);
 assert(Math.abs(E.runClipScriptFrame(cues,1.5).transform.scale-0.875)<1e-9);assert.strictEqual(E.runClipScriptFrame(cues,2).transform.scale,1);
 const tx=Object.assign({},clip,{kind:'text',scriptCode:'set text.fontSize = 180\nset text.color = rgb(255, 128, 0)'});
 f=E.runClipScriptFrame(tx,1);assert.strictEqual(f.text.fontSize,180);assert.strictEqual(f.text.color,'#ff8000');
