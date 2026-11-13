@@ -102,4 +102,40 @@ E.moveClipScriptCue=function(clip,lineNumber,nextTime){
  var source=lines.join('\n'),program=parseProgram(clip,source);
  clip.scriptCode=source;CACHE.set(clip,{source:source,program:program,error:''});return at;
 };
+
+/* Project library: named, reusable scripts travel with project snapshots. */
+function presetList(){
+ if(!E.proj)throw new Error('Open a project before using the script library.');
+ if(!Array.isArray(E.proj.scriptPresets))E.proj.scriptPresets=[];
+ return E.proj.scriptPresets;
+}
+E.listScriptPresets=function(){return presetList().slice();};
+E.getScriptPreset=function(id){
+ var list=presetList();for(var i=0;i<list.length;i++)if(list[i].id===id)return list[i];return null;
+};
+E.saveScriptPreset=function(name,clip,source){
+ name=String(name==null?'':name).trim();source=String(source==null?'':source);
+ if(!clip)throw new TypeError('Select a clip before saving a script preset.');
+ if(!name)throw new Error('Enter a name for this script preset.');
+ if(name.length>48)throw new Error('Preset names are limited to 48 characters.');
+ if(!source.trim())throw new Error('Write a script before saving it as a preset.');
+ E.compileScript(clip,source);
+ var list=presetList(),key=name.toLowerCase(),item=null;
+ for(var i=0;i<list.length;i++)if(String(list[i].name||'').toLowerCase()===key){item=list[i];break;}
+ if(item){item.name=name;item.kind=clip.kind;item.code=source;}
+ else{
+  if(list.length>=50)throw new Error('A project can contain up to 50 saved script presets.');
+  item={id:E.uid('sp'),name:name,kind:clip.kind,code:source};list.push(item);
+ }
+ return item;
+};
+E.applyScriptPreset=function(id,clip){
+ var item=E.getScriptPreset(id);if(!item)throw new Error('Choose a saved script preset first.');
+ if(!clip)throw new TypeError('Select a clip before applying a script preset.');
+ E.compileScript(clip,item.code);
+ clip.scriptCode=item.code;clip.scriptEnabled=true;return true;
+};
+E.deleteScriptPreset=function(id){
+ var list=presetList();for(var i=0;i<list.length;i++)if(list[i].id===id){list.splice(i,1);return true;}return false;
+};
 })();
