@@ -4,17 +4,31 @@
 var K=window.__snip,E=K.E,CACHE=new WeakMap();
 var ALLOWED={'transform.x':1,'transform.y':1,'transform.scale':1,'transform.rotation':1,'transform.opacity':1,'audio.volume':1,'audio.fadeIn':1,'audio.fadeOut':1,'text.fontSize':1,'text.color':1,'paper.enabled':1,'paper.edge':1,'paper.roughness':1,'paper.detail':1,'paper.grain':1,'paper.color':1,'paper.boil':1,'paper.boilFps':1,'paper.boilLoop':1,'paper.shadow':1,'paper.shadowBlur':1};
 var PREC={'+':1,'-':1,'*':2,'/':2,'%':2,'^':3};
+function finiteArgs(args,name){for(var i=0;i<args.length;i++)if(typeof args[i]!=='number'||!isFinite(args[i]))throw new TypeError(name+'() needs finite numbers.');}
+function positivePeriod(value,name){if(!(value>0)||!isFinite(value))throw new RangeError(name+'() needs a period greater than zero.');}
+function wrapped(value,min,max,name){if(!(max>min)||!isFinite(max-min))throw new RangeError(name+'() needs a maximum greater than its minimum.');var span=max-min;return min+(((value-min)%span)+span)%span;}
+var ARITY={pow:2,clamp:3,lerp:3,rgb:3,smoothstep:3,smootherstep:3,wrap:3,pingpong:2,saw:2,triangle:2,step:2,pulse:3,remap:5};
 var FUNCS={
  abs:Math.abs,min:Math.min,max:Math.max,sin:Math.sin,cos:Math.cos,tan:Math.tan,round:Math.round,floor:Math.floor,ceil:Math.ceil,sqrt:Math.sqrt,pow:Math.pow,sign:Math.sign,
  clamp:function(v,a,b){return Math.max(a,Math.min(b,v));},lerp:function(a,b,t){return a+(b-a)*Math.max(0,Math.min(1,t));},
+ fract:function(v){return v-Math.floor(v);},
+ smoothstep:function(a,b,v){if(a===b)return v<a?0:1;var t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*(3-2*t);},
+ smootherstep:function(a,b,v){if(a===b)return v<a?0:1;var t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*t*(t*(t*6-15)+10);},
+ wrap:function(v,a,b){return wrapped(v,a,b,'wrap');},
+ pingpong:function(t,length){positivePeriod(length,'pingpong');var p=wrapped(t,0,2*length,'pingpong');return p<=length?p:2*length-p;},
+ saw:function(t,period){positivePeriod(period,'saw');return wrapped(t,0,period,'saw')/period;},
+ triangle:function(t,period){positivePeriod(period,'triangle');var p=wrapped(t,0,period,'triangle')/period;return p<0.5?p*2:2-p*2;},
+ step:function(edge,v){return v<edge?0:1;},
+ pulse:function(t,period,duty){positivePeriod(period,'pulse');if(duty<0||duty>1)throw new RangeError('pulse() duty must be between 0 and 1.');return wrapped(t,0,period,'pulse')/period<duty?1:0;},
+ remap:function(v,inMin,inMax,outMin,outMax){if(inMin===inMax)throw new RangeError('remap() input range must not be zero.');return outMin+(v-inMin)/(inMax-inMin)*(outMax-outMin);},
  rgb:function(r,g,b){function hx(v){return Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0');}if(![r,g,b].every(function(v){return typeof v==='number'&&isFinite(v);}))throw new TypeError('rgb() needs three finite numbers.');return '#'+hx(r)+hx(g)+hx(b);}
 };
 function fail(n,s){throw new SyntaxError('Line '+n+': '+s);}
 function parseTweenEase(source,line){
  var name=String(source==null?'smooth':source).trim().toLowerCase();
- if(['linear','in','out','inout','smooth'].indexOf(name)>=0)return name;
+ if(['linear','in','out','inout','smooth'].indexOf(name)>=0||/^(sine|cubic|quart|quint|expo|circ|back|bounce|elastic)-(in|out|inout)$/.test(name))return name;
  var m=name.match(/^cubic-bezier\s*\(\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*\)$/i);
- if(!m)fail(line,'Use a named easing mode or cubic-bezier(x1, y1, x2, y2).');
+ if(!m)fail(line,'Use a built-in easing name or cubic-bezier(x1, y1, x2, y2).');
  var v=m.slice(1).map(Number);if(!v.every(function(x){return isFinite(x);}))fail(line,'Bezier control points must be finite numbers.');
  if(v[0]<0||v[0]>1||v[2]<0||v[2]>1)fail(line,'Bezier X control points must be between 0 and 1.');
  if(v[1]<-0.25||v[1]>1.25||v[3]<-0.25||v[3]>1.25)fail(line,'Bezier Y control points must be between -0.25 and 1.25.');
@@ -33,9 +47,10 @@ function parseExpr(s,line){var ts=tokens(s,line),at=0;
   if(t.type==='op'&&t.value==='('){var inner=expr(0,depth+1);if(!ts[at]||ts[at++].value!==')')fail(line,'Missing closing parenthesis.');return inner;}
   if(t.type==='name'){name=t.value;if(name==='true'||name==='false')return {type:'boolean',value:name==='true'};if(ts[at]&&ts[at].value==='('){at++;if(!ts[at]||ts[at].value!==')')while(true){args.push(expr(0,depth+1));if(ts[at]&&ts[at].value===','){at++;continue;}break;}
    if(!ts[at]||ts[at++].value!==')')fail(line,'Missing closing parenthesis in function call.');if(!Object.prototype.hasOwnProperty.call(FUNCS,name))fail(line,'Function "'+name+'" is not allowed.');
-   if(args.length<1||args.length>8)fail(line,'Functions need between 1 and 8 arguments.');if(name==='clamp'&&args.length!==3)fail(line,'clamp() needs 3 arguments.');
-   if((name==='pow'||name==='lerp')&&args.length!==(name==='pow'?2:3))fail(line,name+'() needs '+(name==='pow'?2:3)+' arguments.');
-   if(name==='rgb'&&args.length!==3)fail(line,'rgb() needs 3 arguments.');if(['abs','sin','cos','tan','round','floor','ceil','sqrt','sign'].indexOf(name)>=0&&args.length!==1)fail(line,name+'() needs 1 argument.');
+   if(args.length<1||args.length>8)fail(line,'Functions need between 1 and 8 arguments.');
+   if(Object.prototype.hasOwnProperty.call(ARITY,name)&&args.length!==ARITY[name])fail(line,name+'() needs '+ARITY[name]+' arguments.');
+   if(['abs','sin','cos','tan','round','floor','ceil','sqrt','sign','fract'].indexOf(name)>=0&&args.length!==1)fail(line,name+'() needs 1 argument.');
+   if(['min','max'].indexOf(name)>=0&&args.length<2)fail(line,name+'() needs at least 2 arguments.');
    return {type:'call',name:name,args:args};}
    if(['time','duration','progress','pi'].indexOf(name)<0)fail(line,'Variable "'+name+'" is not available.');return {type:'variable',name:name};}
   fail(line,'Expected a number, colour, variable or parenthesized expression.');}
@@ -73,13 +88,38 @@ function varsAt(t,d){return {time:t,duration:d,progress:d>0?t/d:0};}
 function evalTarget(st,t,d){return validValue(st.id,evaluate(st.expression,varsAt(t,d),0),st.line);}
 function colorMix(a,b,k){var x=parseInt(a.slice(1),16),y=parseInt(b.slice(1),16);function hx(v){return Math.round(v).toString(16).padStart(2,'0');}
  return '#'+hx((x>>16&255)+((y>>16&255)-(x>>16&255))*k)+hx((x>>8&255)+((y>>8&255)-(x>>8&255))*k)+hx((x&255)+((y&255)-(x&255))*k);}
+function bounceOut(k){
+ if(k<1/2.75)return 7.5625*k*k;
+ if(k<2/2.75){k-=1.5/2.75;return 7.5625*k*k+0.75;}
+ if(k<2.5/2.75){k-=2.25/2.75;return 7.5625*k*k+0.9375;}
+ k-=2.625/2.75;return 7.5625*k*k+0.984375;
+}
+function familyOut(f,k){
+ if(f==='sine')return Math.sin(k*Math.PI/2);
+ if(f==='cubic')return 1-Math.pow(1-k,3);
+ if(f==='quart')return 1-Math.pow(1-k,4);
+ if(f==='quint')return 1-Math.pow(1-k,5);
+ if(f==='expo')return k===1?1:1-Math.pow(2,-10*k);
+ if(f==='circ')return Math.sqrt(Math.max(0,1-(k-1)*(k-1)));
+ if(f==='back'){var c=1.70158;return 1+(c+1)*Math.pow(k-1,3)+c*Math.pow(k-1,2);}
+ if(f==='bounce')return bounceOut(k);
+ if(f==='elastic')return k===0||k===1?k:Math.pow(2,-10*k)*Math.sin((k*10-0.75)*(2*Math.PI/3))+1;
+ return k;
+}
+function namedEase(f,mode,k){
+ if(mode==='out')return familyOut(f,k);
+ if(mode==='in')return 1-familyOut(f,1-k);
+ return k<0.5?(1-namedEase(f,'out',1-2*k))/2:(1+namedEase(f,'out',2*k-1))/2;
+}
 E.easeProgress=function(ease,progress){
  var k=Number(progress);if(!isFinite(k))k=0;k=Math.max(0,Math.min(1,k));
  if(ease==='linear')return k;
  if(ease==='in')return k*k;
  if(ease==='out')return 1-(1-k)*(1-k);
  if(ease==='inout')return k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
- return k*k*(3-2*k);
+ if(ease==='smooth')return k*k*(3-2*k);
+ var m=typeof ease==='string'&&ease.match(/^(sine|cubic|quart|quint|expo|circ|back|bounce|elastic)-(in|out|inout)$/);
+ return m?namedEase(m[1],m[2],k):k*k*(3-2*k);
 };
 function bezierCoord(t,a,b){var u=1-t;return 3*u*u*t*a+3*u*t*t*b+t*t*t;}
 E.cubicBezierProgress=function(curve,progress){
