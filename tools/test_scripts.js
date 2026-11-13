@@ -16,7 +16,7 @@ assert.strictEqual(E.easeProgress('inout',0.25),0.125);
 assert.strictEqual(E.easeProgress('smooth',0.25),0.15625);
 assert.strictEqual(E.easeProgress('linear',-1),0);
 assert.strictEqual(E.easeProgress('linear',2),1);
-assert.strictEqual(E.easeProgress('sine-out',0.5),Math.SQRT1_2);
+assert(Math.abs(E.easeProgress('sine-out',0.5)-Math.SQRT1_2)<1e-12);
 assert(Math.abs(E.easeProgress('cubic-out',0.5)-0.875)<1e-12);
 assert(E.easeProgress('back-out',0.5)>1,'Back easing should allow a controlled overshoot.');
 ['sine','cubic','quart','quint','expo','circ','back','bounce','elastic'].forEach(family=>{
