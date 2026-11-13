@@ -201,14 +201,20 @@ function tabAudio(c, b) {
 
 function tabScript(c, b) {
   b.appendChild(sec('SnipScript'));
-  b.appendChild(hint('Write per-frame expressions for this clip. Scripts override its transform non-destructively in preview and export. No JavaScript, browser APIs or network access.'));
+  b.appendChild(hint('Create continuous animations or timed events for this clip. Cues and tweens run deterministically in preview and export. This is not JavaScript and has no browser or network access.'));
   var ta = h('textarea', { class: 'ti script-code', rows: 10, spellcheck: 'false', 'aria-label': 'SnipScript code' });
   ta.value = c.scriptCode || '';
   var status = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
   status.textContent = c.scriptEnabled ? 'Script is enabled.' : 'Script is disabled. Apply a script to enable it.';
-  var example = sb('Insert float example', function () {
-    ta.value = '# Gentle floating movement\nset transform.y = sin(time * 2) * 0.04\nset transform.rotation = sin(time * 1.2) * 3';
-    status.textContent = 'Example inserted. Select Apply & enable to use it.';
+  var example = sb('Insert example', function () {
+    if (c.kind === 'audio') {
+      ta.value = '# Fade and pulse the clip volume\nat 0s set audio.volume = 0.8\nat 0.5s tween audio.volume = 0.55 over 1s ease inout\nat 2s tween audio.volume = 0.9 over 0.5s ease out';
+    } else if (c.kind === 'text') {
+      ta.value = '# Animate type size and colour\nat 0s set text.fontSize = 90\nat 0.4s tween text.fontSize = 140 over 0.5s ease out\nset text.color = rgb(255, 190, 65)';
+    } else {
+      ta.value = '# Float while the paper edge changes\nset transform.y = sin(time * 2) * 0.025\nat 0s set transform.scale = 0.8\nat 0.5s tween transform.scale = 1 over 0.5s ease out\nat 0s set paper.edge = 10\nat 0.6s tween paper.edge = 40 over 0.5s ease inout';
+    }
+    status.textContent = 'Example inserted. Select Check script, then Apply & enable.';
   });
   var check = sb('Check script', function () {
     try {
@@ -236,8 +242,8 @@ function tabScript(c, b) {
   b.appendChild(status);
   b.appendChild(sec('Available values'));
   b.appendChild(hint('time = seconds since this clip starts; duration = clip length in seconds; progress = 0 to 1; pi = π.'));
-  b.appendChild(hint('Targets: transform.x, transform.y, transform.scale, transform.rotation, transform.opacity.'));
-  b.appendChild(hint('Math: sin, cos, tan, abs, min, max, clamp, round, floor, ceil, sqrt, pow and sign. Example: set transform.x = sin(time * 2) * 0.2'));
+  b.appendChild(hint('Targets on this clip: ' + E.listProperties(c).map(function (p) { return p.id; }).join(', ') + '.'));
+  b.appendChild(hint('Math: sin, cos, tan, abs, min, max, clamp, lerp, round, floor, ceil, sqrt, pow, sign and rgb. Cues: at 0.5s set property = value; at 1s tween property = value over 0.5s ease out.'));
 }
 
 var labelT = 0;
@@ -307,7 +313,7 @@ function setBg(bg) { E.proj.bg = bg; E.dirty(); E.commit(); sync(); }
 /* ---------- build, sync ---------- */
 function tabsFor(c) {
   if (!c) return [['proj', 'Project', 'film']];
-  if (c.kind === 'audio') return [['audio', 'Audio', 'vol']];
+  if (c.kind === 'audio') return [['audio', 'Audio', 'vol'], ['script', 'Script', 'code']];
   var t = c.kind === 'text' ? [['text', 'Text', 'text'], ['basic', 'Layout', 'sliders']] : [['basic', 'Video', 'video']];
   t.push(['cut', 'Cutout', 'scissors'], ['anim', 'Animation', 'sparkle'], ['script', 'Script', 'code']); if (c.kind === 'video') t.push(['audio', 'Audio', 'vol']); return t;
 }

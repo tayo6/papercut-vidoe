@@ -210,16 +210,37 @@ function baseScale(c, src, w, h) {
 }
 /* Box the clip occupies on a w x h frame, for the on-canvas handles: centre, size, rotation (static transform only). */
 E.boxOf = function (c, w, h, T) {
+  var lt = T == null ? E.localT(c) : T - c.start;
+  var frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null;
+  c = scriptedClip(c, frame);
   var needPaper = c.cut.on, src;
   try { src = sourceOf(c, c.start, needPaper, false); } catch (e) { src = null; }
   if (!src) { var m = c.media && E.media[c.media]; if (!m) return null; src = { w: m.w || 100, h: m.h || 100, k: 1, ox: 0, oy: 0, mw: m.w || 100, mh: m.h || 100, img: null }; }
-  var lt = T == null ? E.localT(c) : T - c.start, tf = E.tfAt(c, lt), scriptTf = E.runClipScript ? E.runClipScript(c, lt) : null;
-  if (scriptTf) { tf.x = scriptTf.x; tf.y = scriptTf.y; tf.s = scriptTf.scale; tf.r = scriptTf.rotation; tf.o = scriptTf.opacity; }
+  var tf = E.tfAt(c, lt);
+  if (frame && frame.transform) { tf.x = frame.transform.x; tf.y = frame.transform.y; tf.s = frame.transform.scale; tf.r = frame.transform.rotation; tf.o = frame.transform.opacity; }
   var s = baseScale(c, src, w, h) * tf.s, rot = tf.r * PI / 180;
   var ox = src.ox * s * (tf.fx ? -1 : 1), oy = src.oy * s * (tf.fy ? -1 : 1), cr = Math.cos(rot), sr = Math.sin(rot);
   var padPx = src.paper && src.img && src.img.pad ? src.img.pad : 0;
   return { cx: w / 2 + tf.x * w + ox * cr - oy * sr, cy: h / 2 + tf.y * h + ox * sr + oy * cr, bw: (src.w - padPx * 2) * src.k * s, bh: (src.h - padPx * 2) * src.k * s, rot: rot };
 };
+
+function scriptedClip(c, frame) {
+  if (!frame || !frame.scriptedValues) return c;
+  var v = frame.scriptedValues, out = null;
+  if (c.text && (Object.prototype.hasOwnProperty.call(v, 'text.fontSize') || Object.prototype.hasOwnProperty.call(v, 'text.color'))) {
+    out = Object.assign({}, c);
+    out.text = Object.assign({}, c.text);
+    if (Object.prototype.hasOwnProperty.call(v, 'text.fontSize')) out.text.size = frame.text.fontSize;
+    if (Object.prototype.hasOwnProperty.call(v, 'text.color')) out.text.color = frame.text.color;
+  }
+  if (c.cut && (Object.prototype.hasOwnProperty.call(v, 'paper.edge') || Object.prototype.hasOwnProperty.call(v, 'paper.roughness'))) {
+    if (!out) out = Object.assign({}, c);
+    out.cut = Object.assign({}, c.cut);
+    if (Object.prototype.hasOwnProperty.call(v, 'paper.edge')) out.cut.edge = frame.paper.edge;
+    if (Object.prototype.hasOwnProperty.call(v, 'paper.roughness')) out.cut.rough = frame.paper.roughness;
+  }
+  return out || c;
+}
 
 function drawBG(ctx, w, h, T) {
   var b = E.proj.bg;
@@ -235,8 +256,10 @@ function tearPath(ctx, hw, hh, e, edge) {
 }
 
 function drawClip(ctx, w, h, c, T) {
-  var lt = T - c.start, st = animState(c, lt), tf = E.tfAt(c, lt), scriptTf = E.runClipScript ? E.runClipScript(c, lt) : null, cut = c.cut;
-  if (scriptTf) { tf.x = scriptTf.x; tf.y = scriptTf.y; tf.s = scriptTf.scale; tf.r = scriptTf.rotation; tf.o = scriptTf.opacity; }
+  var lt = T - c.start, frame = E.runClipScriptFrame ? E.runClipScriptFrame(c, lt) : null;
+  c = scriptedClip(c, frame);
+  var st = animState(c, lt), tf = E.tfAt(c, lt), cut = c.cut;
+  if (frame && frame.transform) { tf.x = frame.transform.x; tf.y = frame.transform.y; tf.s = frame.transform.scale; tf.r = frame.transform.rotation; tf.o = frame.transform.opacity; }
   var needPaper = E.needsPaper(c, st), src = sourceOf(c, T, needPaper, !!st.fold);
   if (!src) return;
   var base = baseScale(c, src, w, h), s = base * tf.s * st.s;
