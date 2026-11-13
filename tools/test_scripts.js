@@ -155,7 +155,7 @@ assert.strictEqual(E.hasProjectScriptTarget(projectText,'text.fontSize'),true);
 assert.strictEqual(E.hasProjectScriptTarget(projectVideo,'text.fontSize'),false);
 assert.throws(()=>E.compileProjectScript('clip missing set transform.x = 1'),/Unknown clip target/);
 assert.throws(()=>E.compileProjectScript('clip project-video set text.fontSize = 100'),/not scriptable/);
-assert.throws(()=>E.compileProjectScript('clip project-video set transform.x = time\nat 1s clip project-video set transform.x = 1'),/Do not repeat or mix/);
+assert.throws(()=>E.compileProjectScript('clip project-video set transform.x = time\nat 1s clip project-video set transform.x = 1'),/Do not mix continuous and timed cues/);
 E.proj.projectScriptEnabled=false;
 assert.strictEqual(E.runProjectScriptFrame(projectVideo,1.5),null);
 E.proj.projectScriptEnabled=true;
