@@ -455,3 +455,13 @@ body.ed-on .wrap { display: none; }
 .project-plan-scenes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 8px; border: 1px solid var(--e-line); border-radius: 7px; background: var(--e-p2); }
 .project-plan-scenes .hint { flex-basis: 100%; margin: 0 0 2px; }
 .project-scene-jump { min-height: 30px; }
+
+/* Guided project loading and build flow */
+.ed .project-open-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.ed .project-open-actions .sb { min-height: 40px; white-space: normal; line-height: 1.25; }
+.ed .project-open-actions .sb:first-child { grid-column: 1 / -1; }
+.ed .project-build { width: 100%; min-height: 44px; margin: 2px 0 8px; font-size: 14px; }
+.ed .project-advanced { margin: 16px 0 8px; padding: 9px 10px; border: 1px solid var(--e-line); border-radius: 9px; background: var(--e-p1); }
+.ed .project-advanced > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--e-mut); padding: 4px 0; }
+.ed .project-advanced[open] > summary { margin-bottom: 10px; color: var(--e-fg); }
+.ed .project-advanced-body > .sec:first-child { margin-top: 8px; }

@@ -970,28 +970,10 @@ function tabText(c, b) {
 
 var BGS = [['mat', 'Cutting mat'], ['paper', 'Kraft paper'], ['gradient', 'Gradient'], ['green', 'Green screen']];
 function tabProject(c, b) {
-  b.appendChild(sec('Project'));
-  var nm = h('input', { class: 'ti', type: 'text', maxlength: 60, 'aria-label': 'Project name' });
-  nm.addEventListener('input', function () { E.proj.name = nm.value || 'Untitled'; $('edName').value = E.proj.name; });
-  bound.push(function () { if (document.activeElement !== nm) nm.value = E.proj.name; }); bound[bound.length - 1]();
-  b.appendChild(h('div', { class: 'pr one' }, [h('label', { text: 'Name' }), nm]));
-  b.appendChild(sec('Frame shape'));
-  var rg = h('div', { class: 'btn-row', role: 'group', 'aria-label': 'Frame shape' }), rb = Object.keys(E.RATIOS).map(function (k) { var x = sb(k, function () { E.setRatio(k); sync(); }); rg.appendChild(x); return [k, x]; });
-  b.appendChild(rg);
-  bound.push(function () { rb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === E.proj.ratio)); }); }); bound[bound.length - 1]();
-  b.appendChild(sec('Background'));
-  var sws = h('div', { class: 'sw-row' }), bc = h('input', { type: 'color', 'aria-label': 'Background colour' });
-  ['#111111', '#ffffff'].concat(K.PAPER_COLORS).forEach(function (col) { sws.appendChild(h('button', { class: 'sw', type: 'button', style: { background: col }, 'aria-label': 'Background ' + col, onclick: function () { setBg({ type: 'color', color: col }); } })); });
-  bc.addEventListener('input', function () { E.proj.bg = { type: 'color', color: bc.value }; E.dirty(); }); bc.addEventListener('change', function () { E.commit(); sync(); });
-  sws.appendChild(bc); b.appendChild(sws);
-  var pr = h('div', { class: 'btn-row' }), pb = BGS.map(function (q) { var x = sb(q[1], function () { setBg({ type: q[0] }); }); pr.appendChild(x); return [q[0], x]; });
-  b.appendChild(pr);
-  bound.push(function () { var t = E.proj.bg.type; pb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === t)); }); if (E.proj.bg.type === 'color' && /^#[0-9a-f]{6}$/i.test(E.proj.bg.color)) bc.value = E.proj.bg.color; }); bound[bound.length - 1]();
-  b.appendChild(hint('The background shows behind every clip. Add a photo on the bottom track to use a picture instead.'));
-
-
-  b.appendChild(sec('Unified project script'));
-  b.appendChild(hint('One source document builds scenes and tracks, attaches clip, scene and project animation, and can define scene crossfades with transitionIn. Import media first; use its Media ID in the script. Importing a script only loads a draft; validate it before applying.'));
+  b.appendChild(sec('1. Start or open a project'));
+  b.appendChild(hint('Choose a starting point. Open a saved .snip project, try the built-in showcase, or load the starter template. Nothing changes on the timeline until you build it.'));
+  b.appendChild(sec('2. Review the project script'));
+  b.appendChild(hint('This is the whole project: scenes, tracks, clips and animation in one script. Choose a demo or open a .snip file above. Edit the script here if needed, then Build & Preview. Snipwork checks it automatically before changing the timeline.'));
   var bundleStarter = JSON.stringify({
     version: 3,
     tracks: [{ name: 'Main Visuals', kind: 'video' }],
@@ -1007,10 +989,10 @@ function tabProject(c, b) {
       }]
     }]
   }, null, 2);
-  var bundleCode = h('textarea', { class: 'ti script-code', rows: 16, spellcheck: 'false', 'aria-label': 'Unified project script' });
+  var bundleCode = h('textarea', { class: 'ti script-code', rows: 10, spellcheck: 'false', 'aria-label': 'Unified project script' });
   bundleCode.value = E.proj.projectBundleCode || bundleStarter;
   var bundleStatus = h('p', { class: 'hint script-status', role: 'status', 'aria-live': 'polite' });
-  var bundleFile = h('input', { type: 'file', accept: '.snip,.json,application/json', 'aria-label': 'Import Snipwork project script' });
+  var bundleFile = h('input', { type: 'file', accept: '.snip,.json,application/json', 'aria-label': 'Open a Snipwork project script' });
   bundleFile.hidden = true;
   function showBundleError(err) { bundleStatus.textContent = err && err.message ? err.message : String(err); }
   function readBundleFile(file) {
@@ -1029,14 +1011,18 @@ function tabProject(c, b) {
     if (!file) return;
     readBundleFile(file).then(function (source) {
       bundleCode.value = source;
-      bundleStatus.textContent = 'Imported "' + file.name + '" as a draft. Validate the entire project before applying it.';
+      bundleStatus.textContent = 'Opened "' + file.name + '" as a draft. Tap Build & Preview when ready.';
     }).catch(showBundleError);
   });
-  var importBundle = sb('Import .snip file', function () { bundleFile.click(); });
-  var loadMaryDemo = sb('Load Mary demo', function () {
+  var importBundle = sb('Open .snip file', function () { bundleFile.click(); });
+  var loadMaryDemo = sb('Try Mary demo', function () {
     if (!E.MARY_DEMO) { bundleStatus.textContent = 'The built-in Mary demo is unavailable in this build.'; return; }
     bundleCode.value = JSON.stringify(E.MARY_DEMO, null, 2);
-    bundleStatus.textContent = 'Loaded the eight-scene Mary Had a Little Lamb papercut showcase as a draft. Validate it, then choose Apply & Preview.';
+    bundleStatus.textContent = 'Mary demo loaded as a draft. Tap Build & Preview to place it on the timeline and play it.';
+  });
+  var newProjectBundle = sb('Load starter template', function () {
+    bundleCode.value = bundleStarter;
+    bundleStatus.textContent = 'Starter template ready. Edit the script, then tap Build & Preview.';
   });
   var copyBundle = sb('Copy script', function () {
     var source = bundleCode.value || '';
@@ -1071,7 +1057,7 @@ function tabProject(c, b) {
     bundleCode.value = E.proj.projectBundleCode;
     bundleStatus.textContent = 'Loaded the last applied project script as the current draft.';
   });
-  var checkBundle = sb('Validate entire project', function () {
+  var checkBundle = sb('Check script', function () {
     try {
       var result = E.compileUnifiedProject(bundleCode.value);
       bundleStatus.textContent = 'Valid: ' + result.scenes.length + ' scenes, ' + result.items.length + ' clips, ' + result.scriptStatements + ' animation statements. No timeline changes made.';
@@ -1089,19 +1075,53 @@ function tabProject(c, b) {
       }
     } catch (err) { showBundleError(err); }
   }
-  var applyBundleButton = sb('Apply project script', function () { applyBundle(false); });
-  var applyPreviewBundle = sb('Apply & Preview', function () { applyBundle(true); });
+  var applyBundleButton = sb('Apply without preview', function () { applyBundle(false); });
+  var applyPreviewBundle = sb('Build & Preview', function () { applyBundle(true); });
   b.appendChild(bundleFile);
+  b.appendChild(h('div', { class: 'script-actions project-open-actions' }, [loadMaryDemo, importBundle, newProjectBundle]));
   b.appendChild(bundleCode);
-  b.appendChild(h('div', { class: 'script-actions' }, [importBundle, loadMaryDemo, copyBundle, downloadBundle, restoreBundle]));
-  b.appendChild(h('div', { class: 'script-actions' }, [checkBundle, applyBundleButton, applyPreviewBundle]));
+  var buildPreviewButton = applyPreviewBundle;
+  buildPreviewButton.className = 'eb acc project-build';
+  b.appendChild(sec('3. Build the project'));
+  b.appendChild(buildPreviewButton);
   b.appendChild(bundleStatus);
   bound.push(function () {
     if (document.activeElement !== bundleCode && E.proj.projectBundleCode && bundleCode.value !== E.proj.projectBundleCode) bundleCode.value = E.proj.projectBundleCode;
   });
 
-  b.appendChild(sec('Project-wide animation script'));
-  b.appendChild(hint('Coordinate clips across the whole timeline. This script uses absolute project time and has the highest priority: clip scripts run first, then scene scripts, then this project-wide script.'));
+
+  var settingsPanel = h('div', { class: 'project-settings' });
+  settingsPanel.appendChild(sec('Project settings'));
+  var nm = h('input', { class: 'ti', type: 'text', maxlength: 60, 'aria-label': 'Project name' });
+  nm.addEventListener('input', function () { E.proj.name = nm.value || 'Untitled'; $('edName').value = E.proj.name; });
+  bound.push(function () { if (document.activeElement !== nm) nm.value = E.proj.name; }); bound[bound.length - 1]();
+  settingsPanel.appendChild(h('div', { class: 'pr one' }, [h('label', { text: 'Name' }), nm]));
+  settingsPanel.appendChild(sec('Frame shape'));
+  var rg = h('div', { class: 'btn-row', role: 'group', 'aria-label': 'Frame shape' }), rb = Object.keys(E.RATIOS).map(function (k) { var x = sb(k, function () { E.setRatio(k); sync(); }); rg.appendChild(x); return [k, x]; });
+  settingsPanel.appendChild(rg);
+  bound.push(function () { rb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === E.proj.ratio)); }); }); bound[bound.length - 1]();
+  settingsPanel.appendChild(sec('Background'));
+  var sws = h('div', { class: 'sw-row' }), bc = h('input', { type: 'color', 'aria-label': 'Background colour' });
+  ['#111111', '#ffffff'].concat(K.PAPER_COLORS).forEach(function (col) { sws.appendChild(h('button', { class: 'sw', type: 'button', style: { background: col }, 'aria-label': 'Background ' + col, onclick: function () { setBg({ type: 'color', color: col }); } })); });
+  bc.addEventListener('input', function () { E.proj.bg = { type: 'color', color: bc.value }; E.dirty(); }); bc.addEventListener('change', function () { E.commit(); sync(); });
+  sws.appendChild(bc); settingsPanel.appendChild(sws);
+  var pr = h('div', { class: 'btn-row' }), pb = BGS.map(function (q) { var x = sb(q[1], function () { setBg({ type: q[0] }); }); pr.appendChild(x); return [q[0], x]; });
+  settingsPanel.appendChild(pr);
+  bound.push(function () { var t = E.proj.bg.type; pb.forEach(function (q) { q[1].setAttribute('aria-pressed', String(q[0] === t)); }); if (E.proj.bg.type === 'color' && /^#[0-9a-f]{6}$/i.test(E.proj.bg.color)) bc.value = E.proj.bg.color; }); bound[bound.length - 1]();
+  settingsPanel.appendChild(hint('The background shows behind every clip. Add a photo on the bottom track to use a picture instead.'));
+
+
+
+  var advancedPanel = h('div', { class: 'project-advanced-body' });
+  advancedPanel.appendChild(settingsPanel);
+  advancedPanel.appendChild(sec('More script actions'));
+  advancedPanel.appendChild(h('div', { class: 'script-actions' }, [copyBundle, downloadBundle, restoreBundle, checkBundle, applyBundleButton]));
+  b.appendChild(h('details', { class: 'project-advanced' }, [
+    h('summary', { text: 'Advanced project controls and script tools' }),
+    advancedPanel
+  ]));
+  advancedPanel.appendChild(sec('Project-wide animation script'));
+  advancedPanel.appendChild(hint('Coordinate clips across the whole timeline. This script uses absolute project time and has the highest priority: clip scripts run first, then scene scripts, then this project-wide script.'));
   var projectTargets = h('select', { class: 'es', 'aria-label': 'Choose a clip to target' });
   function refreshProjectTargets() {
     projectTargets.textContent = '';
@@ -1150,16 +1170,16 @@ function tabProject(c, b) {
     if (document.activeElement !== projectCode) projectCode.value = E.proj.projectScriptCode || '';
     projectStatus.textContent = E.proj.projectScriptEnabled ? 'Project script is enabled.' : 'Project script is disabled. Apply & enable to run it.';
   });
-  b.appendChild(projectTargets);
-  b.appendChild(projectCode);
-  b.appendChild(h('div', { class: 'script-actions' }, [insertTarget, insertTween, checkProject, applyProject, disableProject]));
-  b.appendChild(projectStatus);
-  b.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets accept clip IDs or Script Builder aliases; properties support transform.*, paper.*, text.* and audio.* when available on that clip.'));
+  advancedPanel.appendChild(projectTargets);
+  advancedPanel.appendChild(projectCode);
+  advancedPanel.appendChild(h('div', { class: 'script-actions' }, [insertTarget, insertTween, checkProject, applyProject, disableProject]));
+  advancedPanel.appendChild(projectStatus);
+  advancedPanel.appendChild(hint('Examples: clip c1 set transform.y = sin(time * 2) * 0.04, or at 1s clip c1 tween transform.scale = 1 over 0.5s ease out. Project variables: time, duration, progress and pi. Targets accept clip IDs or Script Builder aliases; properties support transform.*, paper.*, text.* and audio.* when available on that clip.'));
 
 
 
-  b.appendChild(sec('Scene-local animation script'));
-  b.appendChild(hint('Write one reusable script for the selected scene. The time and duration variables use that scene’s own clock. Scene scripts can target only clips inside that scene.'));
+  advancedPanel.appendChild(sec('Scene-local animation script'));
+  advancedPanel.appendChild(hint('Write one reusable script for the selected scene. The time and duration variables use that scene’s own clock. Scene scripts can target only clips inside that scene.'));
   var scenePick = h('select', { class: 'es', 'aria-label': 'Choose a scene to script' });
   var sceneClipPick = h('select', { class: 'es', 'aria-label': 'Choose a clip in the scene' });
   var sceneCode = h('textarea', { class: 'ti script-code', rows: 8, spellcheck: 'false', 'aria-label': 'Scene SnipScript code' });
@@ -1266,15 +1286,15 @@ function tabProject(c, b) {
       if (scene) sceneStatus.textContent = scene.scriptEnabled ? 'Scene script is enabled.' : 'Scene script is disabled. Check and apply to enable it.';
     }
   });
-  b.appendChild(scenePick);
-  b.appendChild(sceneClipPick);
-  b.appendChild(sceneCode);
-  b.appendChild(h('div', { class: 'script-actions' }, [insertSceneContinuous, insertSceneTween, checkScene, applyScene, disableScene]));
-  b.appendChild(sceneStatus);
-  b.appendChild(hint('Scene examples: clip hero-shot set transform.y = sin(time * 2) * 0.04, or at 1s clip hero-shot tween paper.edge = 42 over 0.5s ease out. Here time 1s means one second after this scene begins.'));
+  advancedPanel.appendChild(scenePick);
+  advancedPanel.appendChild(sceneClipPick);
+  advancedPanel.appendChild(sceneCode);
+  advancedPanel.appendChild(h('div', { class: 'script-actions' }, [insertSceneContinuous, insertSceneTween, checkScene, applyScene, disableScene]));
+  advancedPanel.appendChild(sceneStatus);
+  advancedPanel.appendChild(hint('Scene examples: clip hero-shot set transform.y = sin(time * 2) * 0.04, or at 1s clip hero-shot tween paper.edge = 42 over 0.5s ease out. Here time 1s means one second after this scene begins.'));
 
-  b.appendChild(sec('Script-driven Project Builder'));
-  b.appendChild(hint('Build tracks and place clips with a safe JSON plan. Import image, video or audio files first; this builder never reads files or runs JavaScript.'));
+  advancedPanel.appendChild(sec('Script-driven Project Builder'));
+  advancedPanel.appendChild(hint('Build tracks and place clips with a safe JSON plan. Import image, video or audio files first; this builder never reads files or runs JavaScript.'));
   var planStarter = JSON.stringify({
     version: 2,
     tracks: [{ name: 'Main Visuals', kind: 'video' }],
@@ -1406,12 +1426,12 @@ function tabProject(c, b) {
       savedPlanCode = currentPlan; planDraft = currentPlan || planStarter; planCode.value = planDraft;
     }
   });
-  b.appendChild(planPanel);
+  advancedPanel.appendChild(planPanel);
 
-  b.appendChild(sec('Info'));
-  var a = kv('Length', ''), z = kv('Clips', ''), y = kv('Size', ''); b.appendChild(a[0]); b.appendChild(z[0]); b.appendChild(y[0]);
+  advancedPanel.appendChild(sec('Info'));
+  var a = kv('Length', ''), z = kv('Clips', ''), y = kv('Size', ''); advancedPanel.appendChild(a[0]); advancedPanel.appendChild(z[0]); advancedPanel.appendChild(y[0]);
   bound.push(function () { a[1].textContent = E.fmt(E.end(), true); z[1].textContent = String(E.proj.clips.length); y[1].textContent = E.proj.w + ' x ' + E.proj.h; }); bound[bound.length - 1]();
-  b.appendChild(hint('Select a clip on the timeline or on the preview to edit it here.'));
+  advancedPanel.appendChild(hint('Select a clip on the timeline or on the preview to edit it here.'));
 }
 function setBg(bg) { E.proj.bg = bg; E.dirty(); E.commit(); sync(); }
 
