@@ -23,7 +23,7 @@ MP4 and WebM muxing by [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) and [w
 
 ## Unified project script (version 3)
 
-The Project tab now has one unified project-script editor. A version 3 document can declare named tracks, scenes, clips and all three SnipScript animation scopes in one JSON source. The root script is the project-wide clock, a scene's script uses that scene's clock, and a clip's script uses that clip's local clock. Each script is still the same restricted SnipScript language described below; the document does not execute JavaScript.
+The Project tab now has one unified project-script editor. A version 3 document can declare named tracks, scenes, clips and all three SnipScript animation scopes in one JSON source. The root script is the project-wide clock, a scene's script uses that scene's clock, and a clip's script uses that clip's local clock. Each script is still the same restricted SnipScript language described below; the document does not execute JavaScript. A scene can also declare a visual transition into itself with `transitionIn: { "type": "crossfade", "duration": 1 }`.
 
 Example:
 
@@ -210,7 +210,7 @@ Example structure:
 
 When the main scene start changes from 5 to 7, its nested clip starts at 7.5 seconds automatically. Reapplying the plan updates matching scene and clip aliases without duplicating them. The Project inspector includes a scene navigator, and the timeline shows clickable scene blocks that move the playhead to each scene's start.
 
-Version 1 flat plans remain supported. Version 2 scenes currently organize and position existing imported media and text clips; transitions, scene templates and deleting content by omission are later extensions. Each scene also has its own SnipScript editor, with scene-relative time, duration and progress variables. Scene scripts can target only their own clips by stable alias. The execution order is clip script, then scene script, then project-wide script; the project-wide script has final priority.
+Version 1 flat plans remain supported. Version 2 and version 3 scenes support an optional `transitionIn` object. The first supported type is `crossfade`, with a duration in seconds (0.1–10). The incoming scene begins at the start of the overlap; the preceding scene must extend through the transition end for its visual clips to fade out as the incoming scene fades in. Put overlapping scene visuals on separate video tracks, because a single track cannot contain overlapping clips. Scene transitions affect visuals only; audio continues on its own lanes. Scene templates and deleting content by omission remain later extensions. Each scene also has its own SnipScript editor, with scene-relative time, duration and progress variables. Scene scripts can target only their own clips by stable alias. The execution order is clip script, then scene script, then project-wide script; the project-wide script has final priority.
 
 
 ## Scene-local SnipScript

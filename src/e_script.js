@@ -350,7 +350,7 @@ function unifiedCandidate(raw,summary){
  (summary.scenes||[]).forEach(function(def){
   var key=String(def.alias).toLowerCase(),scene=project.scenes.find(function(item){return String(item.alias||'').toLowerCase()===key;});
   if(!scene)scene={id:'__unified_scene_'+key,alias:def.alias};
-  scene.alias=def.alias;scene.name=def.name;scene.start=def.start;scene.duration=def.duration;
+  scene.alias=def.alias;scene.name=def.name;scene.start=def.start;scene.duration=def.duration;scene.transitionIn=def.transitionIn?E.clone(def.transitionIn):null;
   var source=(raw.scenes||[]).find(function(item){return String(item.alias||'').toLowerCase()===key;});
   if(source&&Object.prototype.hasOwnProperty.call(source,'script')){scene.scriptCode=source.script;scene.scriptEnabled=!!String(source.script).trim();}
   var ix=project.scenes.findIndex(function(item){return item.id===scene.id;});

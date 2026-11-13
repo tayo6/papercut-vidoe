@@ -261,6 +261,7 @@ function drawClip(ctx, w, h, c, T) {
   if (!src) return;
   var base = baseScale(c, src, w, h), s = base * tf.s * st.s;
   var alpha = clamp(tf.o * st.a, 0, 1), rot = tf.r * PI / 180 + st.rot;
+  if (c.sceneId && E.sceneTransitionAlpha) alpha *= E.sceneTransitionAlpha(c.sceneId, T);
   if (alpha < 0.002 || s <= 0) return;
   var cx = w / 2 + (tf.x + st.dx) * w, cy = h / 2 + (tf.y + st.dy) * h, fxm = tf.fx ? -1 : 1, fym = tf.fy ? -1 : 1;
   var cr = Math.cos(rot), sr = Math.sin(rot), ox = src.ox * s * st.sx * fxm, oy = src.oy * s * st.sy * fym;
