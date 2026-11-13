@@ -375,7 +375,8 @@ function tabsFor(c) {
 function keyOf() {
   var c = E.selClip(); if (!c) return 'none';
   var m = c.media && E.media[c.media];
-  var presets = E.listScriptPresets ? E.listScriptPresets().map(function (p) { return [p.id, p.name, p.kind, p.code].join(':'); }).join(';') : '';\n  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', presets, m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
+  var presets = E.listScriptPresets ? E.listScriptPresets().map(function (p) { return [p.id, p.name, p.kind, p.code].join(':'); }).join(';') : '';
+  return [c.id, c.kind, c.cut.on, c.cut.rm && c.cut.rm.on, c.cut.rm && c.cut.rm.wands.length, c.text && c.text.ransom, c.text && c.text.box, c.anim['in'].t, c.anim.out.t, c.anim.combo.t !== 'none', c.scriptEnabled ? 1 : 0, c.scriptCode || '', presets, m && m.buffer ? 1 : 0, U.wand ? 1 : 0].join('|');
 }
 function build() {
   if (building) return; building = true;
