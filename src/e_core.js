@@ -252,6 +252,21 @@ E.moveKfTime = function (c, from, to) {
   E.KF_PARAMS.forEach(function (p) { var a = c.kf[p]; if (!a) return; a.forEach(function (k) { if (Math.abs(k.t - from) <= E.KF_EPS) k.t = to; }); a.sort(function (x, y) { return x.t - y.t; }); });
   return to;
 };
+/* Move one keyframe on one property lane without moving other properties at the same timestamp. */
+E.movePropertyKfTime = function (c, p, from, to) {
+  var a = c && c.kf && c.kf[p];
+  if (!a || !a.length || E.KF_PARAMS.indexOf(p) < 0) return from;
+  var index = E.kfIndex(c, p, from);
+  if (index < 0) return from;
+  to = Number(to);
+  if (!isFinite(to)) return a[index].t;
+  to = clamp(to, 0, c.dur);
+  var blocked = a.some(function (key, i) { return i !== index && Math.abs(key.t - to) <= E.KF_EPS; });
+  if (blocked) return a[index].t;
+  a[index].t = to;
+  a.sort(function (x, y) { return x.t - y.t; });
+  return to;
+};
 /* Set how keyframes at lt ease towards the next one. With none there, only the default for new keyframes changes. */
 E.setKfEase = function (c, lt, e) {
   e = copyKfEase(e); E.kfEase = e; var hit = false;
